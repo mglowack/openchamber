@@ -359,6 +359,7 @@ interface MessageListProps {
     onLoadOlder: () => void;
     scrollToBottom?: (options?: { instant?: boolean; force?: boolean }) => void;
     scrollRef?: React.RefObject<HTMLDivElement | null>;
+    prepareForNavigation?: () => void;
 }
 
 export interface MessageListHandle {
@@ -392,6 +393,7 @@ interface MessageRowProps {
     onContentChange: (reason?: ContentChangeReason) => void;
     animationHandlers: AnimationHandlers;
     scrollToBottom?: (options?: { instant?: boolean; force?: boolean }) => void;
+    onJumpToAnswer?: () => void;
 }
 
 const MessageRow = React.memo<MessageRowProps>(({
@@ -404,6 +406,7 @@ const MessageRow = React.memo<MessageRowProps>(({
     onContentChange,
     animationHandlers,
     scrollToBottom,
+    onJumpToAnswer,
 }) => {
     return (
         <ChatMessage
@@ -416,6 +419,7 @@ const MessageRow = React.memo<MessageRowProps>(({
             animationHandlers={animationHandlers}
             scrollToBottom={scrollToBottom}
             turnGroupingContext={turnGroupingContext}
+            onJumpToAnswer={onJumpToAnswer}
         />
     );
 });
@@ -436,6 +440,9 @@ interface TurnBlockProps {
     stickyUserHeader?: boolean;
     shouldAnimateUserMessage: (message: ChatMessageEntry) => boolean;
     onUserAnimationConsumed: (messageId: string) => void;
+    scrollRef?: React.RefObject<HTMLDivElement | null>;
+    prepareForNavigation?: () => void;
+    hasActiveQuestion?: boolean;
 }
 
 const TurnBlock: React.FC<TurnBlockProps> = ({
@@ -452,6 +459,9 @@ const TurnBlock: React.FC<TurnBlockProps> = ({
     stickyUserHeader = true,
     shouldAnimateUserMessage,
     onUserAnimationConsumed,
+    scrollRef,
+    prepareForNavigation,
+    hasActiveQuestion = false,
 }) => {
     const turnUiState = turnUiStates.get(turn.turnId) ?? { isExpanded: defaultActivityExpanded };
 
@@ -556,6 +566,57 @@ const TurnBlock: React.FC<TurnBlockProps> = ({
         };
     }, [turn.diffStats, turn.hasReasoning, turn.hasTools, turn.headerMessageId, turn.summaryText, turn.turnId, turn.userMessage.info, visibleActivityParts, visibleActivitySegments]);
 
+    /** Scroll to the top of this turn's answer text, positioned right below the sticky header + shadow. */
+    const jumpToAnswer = React.useCallback(() => {
+        if (turn.assistantMessages.length === 0) return;
+
+        const container = scrollRef?.current;
+        if (!container) return;
+
+        const turnSection = container.querySelector<HTMLElement>(`[data-turn-id="${turn.turnId}"]`);
+        if (!turnSection) return;
+
+        // Primary: finished answer → first text paragraph inside it
+        // Fallback: LAST text paragraph before a question (nearest context text, not early throwaway text)
+        let el: HTMLElement | null = null;
+        const answerTextEl = turnSection.querySelector<HTMLElement>('[data-answer-text]');
+        if (answerTextEl) {
+            el = answerTextEl.querySelector<HTMLElement>('.group\\/assistant-text') ?? answerTextEl;
+        } else {
+            const assistantArea = turnSection.querySelector<HTMLElement>(':scope > div:last-child');
+            const allText = assistantArea?.querySelectorAll<HTMLElement>('.group\\/assistant-text');
+            el = allText && allText.length > 0 ? allText[allText.length - 1] : null;
+        }
+        if (!el) return;
+
+        // Use offsetHeight for reliable measurement regardless of sticky scroll state
+        const stickyHeader = turnSection.querySelector<HTMLElement>(':scope > .sticky');
+        let headerOffset = 0;
+        if (stickyHeader) {
+            headerOffset = stickyHeader.offsetHeight;
+            const shadowEl = stickyHeader.querySelector<HTMLElement>('[aria-hidden="true"]');
+            if (shadowEl) {
+                headerOffset += shadowEl.offsetHeight;
+            }
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const targetScrollTop = elRect.top - containerRect.top + container.scrollTop - headerOffset;
+
+        // Unpin so autoscroll doesn't fight this intentional navigation
+        prepareForNavigation?.();
+        container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+    }, [turn.assistantMessages, turn.turnId, scrollRef, prepareForNavigation]);
+
+    const hasTurnTextContent = turn.assistantMessages.some(msg =>
+        msg.parts.some(p => p.type === 'text' && (p as { text?: string }).text?.trim())
+    );
+    const hasCompleteResponse = turn.assistantMessages.length > 0 && (
+        (!isLastTurn || !sessionIsWorking) ||
+        (isLastTurn && hasActiveQuestion && hasTurnTextContent)
+    );
+
     const renderMessage = React.useCallback(
         (message: ChatMessageEntry) => {
             const messageIndex = messageOrder.lookup.get(message.info.id);
@@ -579,6 +640,8 @@ const TurnBlock: React.FC<TurnBlockProps> = ({
                 } satisfies TurnGroupingContext
                 : undefined;
 
+            const isUserMessage = message.info.id === turn.userMessage.info.id;
+
             return (
                 <MessageRow
                     key={message.info.id}
@@ -591,11 +654,14 @@ const TurnBlock: React.FC<TurnBlockProps> = ({
                     onContentChange={onMessageContentChange}
                     animationHandlers={getAnimationHandlers(message.info.id)}
                     scrollToBottom={scrollToBottom}
+                    onJumpToAnswer={isUserMessage && hasCompleteResponse ? jumpToAnswer : undefined}
                 />
             );
         },
         [
             getAnimationHandlers,
+            jumpToAnswer,
+            hasCompleteResponse,
             isLastTurn,
             messageOrder.lookup,
             messageOrder.ordered,
@@ -603,6 +669,7 @@ const TurnBlock: React.FC<TurnBlockProps> = ({
             scrollToBottom,
             sessionIsWorking,
             turn.turnId,
+            turn.userMessage.info.id,
             turnUiState.isExpanded,
             turnGroupingContextBase,
             visibleAssistantMessages,
@@ -680,6 +747,9 @@ interface MessageListEntryProps {
     chatRenderMode: 'sorted' | 'live';
     shouldAnimateUserMessage: (message: ChatMessageEntry) => boolean;
     onUserAnimationConsumed: (messageId: string) => void;
+    scrollRef?: React.RefObject<HTMLDivElement | null>;
+    prepareForNavigation?: () => void;
+    hasActiveQuestion?: boolean;
 }
 
 const MessageListEntry: React.FC<MessageListEntryProps> = React.memo(({
@@ -695,6 +765,9 @@ const MessageListEntry: React.FC<MessageListEntryProps> = React.memo(({
     chatRenderMode,
     shouldAnimateUserMessage,
     onUserAnimationConsumed,
+    scrollRef,
+    prepareForNavigation,
+    hasActiveQuestion,
 }) => {
     if (entry.kind === 'ungrouped') {
         return (
@@ -726,6 +799,9 @@ const MessageListEntry: React.FC<MessageListEntryProps> = React.memo(({
             getAnimationHandlers={getAnimationHandlers}
             scrollToBottom={scrollToBottom}
             stickyUserHeader={stickyUserHeader}
+            scrollRef={scrollRef}
+            prepareForNavigation={prepareForNavigation}
+            hasActiveQuestion={hasActiveQuestion}
         />
     );
 }, areMessageListEntryPropsEqual);
@@ -785,7 +861,10 @@ const MessageListContent: React.FC<{
     chatRenderMode: 'sorted' | 'live';
     shouldAnimateUserMessage: (message: ChatMessageEntry) => boolean;
     onUserAnimationConsumed: (messageId: string) => void;
-}> = ({ entries, onMessageContentChange, getAnimationHandlers, scrollToBottom, stickyUserHeader, sessionIsWorking, defaultActivityExpanded, turnUiStates, onToggleTurnGroup, chatRenderMode, shouldAnimateUserMessage, onUserAnimationConsumed }) => {
+    scrollRef?: React.RefObject<HTMLDivElement | null>;
+    prepareForNavigation?: () => void;
+    hasActiveQuestion?: boolean;
+}> = ({ entries, onMessageContentChange, getAnimationHandlers, scrollToBottom, stickyUserHeader, sessionIsWorking, defaultActivityExpanded, turnUiStates, onToggleTurnGroup, chatRenderMode, shouldAnimateUserMessage, onUserAnimationConsumed, scrollRef, prepareForNavigation, hasActiveQuestion }) => {
     const renderEntry = React.useCallback((entry: RenderEntry) => {
         return (
             <MessageListEntry
@@ -802,9 +881,12 @@ const MessageListContent: React.FC<{
                 chatRenderMode={chatRenderMode}
                 shouldAnimateUserMessage={shouldAnimateUserMessage}
                 onUserAnimationConsumed={onUserAnimationConsumed}
+                scrollRef={scrollRef}
+                prepareForNavigation={prepareForNavigation}
+                hasActiveQuestion={hasActiveQuestion}
             />
         );
-    }, [chatRenderMode, defaultActivityExpanded, getAnimationHandlers, onMessageContentChange, onToggleTurnGroup, onUserAnimationConsumed, scrollToBottom, sessionIsWorking, shouldAnimateUserMessage, stickyUserHeader, turnUiStates]);
+    }, [chatRenderMode, defaultActivityExpanded, getAnimationHandlers, hasActiveQuestion, onMessageContentChange, onToggleTurnGroup, onUserAnimationConsumed, prepareForNavigation, scrollRef, scrollToBottom, sessionIsWorking, shouldAnimateUserMessage, stickyUserHeader, turnUiStates]);
 
     return (
         <TurnList entries={entries} renderEntry={renderEntry} />
@@ -825,9 +907,11 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
     onLoadOlder,
     scrollToBottom,
     scrollRef,
+    prepareForNavigation,
 }, ref) => {
     const { isMobile } = useDeviceInfo();
     const { isWorking: sessionIsWorking } = useCurrentSessionActivity();
+    const hasActiveQuestion = questions.length > 0;
     const { working } = useAssistantStatus();
     const currentAgentName = useConfigStore((state) => state.currentAgentName);
     const stickyUserHeader = useUIStore(state => state.stickyUserHeader);
@@ -1481,9 +1565,13 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
                                             chatRenderMode={chatRenderMode}
                                             shouldAnimateUserMessage={shouldAnimateUserMessage}
                                             onUserAnimationConsumed={onUserAnimationConsumed}
+                                            scrollRef={scrollRef}
+                                            prepareForNavigation={prepareForNavigation}
+                                            hasActiveQuestion={hasActiveQuestion}
                                         />
                                     </div>
                                 );
+
                             })}
                         </div>
                     ) : (
@@ -1501,6 +1589,9 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
                             chatRenderMode={chatRenderMode}
                             shouldAnimateUserMessage={shouldAnimateUserMessage}
                             onUserAnimationConsumed={onUserAnimationConsumed}
+                            scrollRef={scrollRef}
+                            prepareForNavigation={prepareForNavigation}
+                            hasActiveQuestion={hasActiveQuestion}
                         />
                         </div>
                     )}

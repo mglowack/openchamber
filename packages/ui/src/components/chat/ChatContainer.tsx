@@ -1,5 +1,5 @@
 import React from 'react';
-import { RiArrowLeftLine } from '@remixicon/react';
+import { RiArrowUpLine, RiArrowLeftLine } from '@remixicon/react';
 import { useShallow } from 'zustand/react/shallow';
 import type { Message, Part } from '@opencode-ai/sdk/v2';
 
@@ -224,8 +224,11 @@ export const ChatContainer: React.FC = () => {
         scrollRef,
         handleMessageContentChange,
         getAnimationHandlers,
+        showScrollUpButton,
         scrollToBottom,
+        scrollToCurrentTurnTop,
         releasePinnedScroll,
+        prepareForNavigation,
         isPinned,
         isOverflowing,
         isProgrammaticFollowActive,
@@ -517,6 +520,7 @@ export const ChatContainer: React.FC = () => {
                                 }}
                                 scrollToBottom={scrollToBottom}
                                 scrollRef={scrollRef}
+                                prepareForNavigation={prepareForNavigation}
                             />
                         </div>
                     </ScrollShadow>
@@ -533,10 +537,25 @@ export const ChatContainer: React.FC = () => {
                 )}
             >
                 {!isDesktopExpandedInput && sessionMessages.length > 0 && (
-                    <ScrollToBottomButton
-                        visible={timelineController.showScrollToBottom}
-                        onClick={navigation.resumeToLatest}
-                    />
+                    <>
+                        {showScrollUpButton && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-12 z-10">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={scrollToCurrentTurnTop}
+                                    className="rounded-full h-8 w-8 p-0 shadow-none bg-background/95 hover:bg-interactive-hover transition-opacity duration-200"
+                                    aria-label="Scroll to top of answer"
+                                >
+                                    <RiArrowUpLine className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        )}
+                        <ScrollToBottomButton
+                            visible={timelineController.showScrollToBottom}
+                            onClick={navigation.resumeToLatest}
+                        />
+                    </>
                 )}
                 <ChatInput scrollToBottom={scrollToBottom} />
             </div>

@@ -60,9 +60,12 @@ interface UseChatScrollManagerResult {
     handleMessageContentChange: (reason?: ContentChangeReason) => void;
     getAnimationHandlers: (messageId: string) => AnimationHandlers;
     showScrollButton: boolean;
+    showScrollUpButton: boolean;
     scrollToBottom: (options?: { instant?: boolean; force?: boolean }) => void;
+    scrollToCurrentTurnTop: () => void;
     scrollToPosition: (position: number, options?: { instant?: boolean }) => void;
     releasePinnedScroll: () => void;
+    prepareForNavigation: () => void;
     isPinned: boolean;
     isOverflowing: boolean;
     isProgrammaticFollowActive: boolean;
@@ -73,6 +76,8 @@ const DIRECT_SCROLL_INTENT_WINDOW_MS = 250;
 // Threshold for re-pinning: 10% of container height (matches bottom spacer)
 const PIN_THRESHOLD_RATIO = 0.10;
 const VIEWPORT_ANCHOR_MIN_UPDATE_MS = 150;
+// How long the scroll-up button stays visible after the user stops scrolling
+const SCROLL_UP_HIDE_DELAY_MS = 1000;
 
 export const useChatScrollManager = ({
     currentSessionId,
@@ -100,6 +105,7 @@ export const useChatScrollManager = ({
     }, [getPinThreshold]);
 
     const [showScrollButton, setShowScrollButton] = React.useState(false);
+    const [showScrollUpButton, setShowScrollUpButton] = React.useState(false);
     const [isPinned, setIsPinned] = React.useState(true);
     const [isOverflowing, setIsOverflowing] = React.useState(false);
 
@@ -114,6 +120,8 @@ export const useChatScrollManager = ({
     const pendingViewportAnchorRef = React.useRef<{ sessionId: string; anchor: number } | null>(null);
     const lastViewportAnchorRef = React.useRef<{ sessionId: string; anchor: number } | null>(null);
     const lastViewportAnchorWriteAtRef = React.useRef<number>(0);
+    const scrollUpHideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isNavigatingRef = React.useRef(false);
 
     const markProgrammaticScroll = React.useCallback(() => {
         suppressUserScrollUntilRef.current = Date.now() + PROGRAMMATIC_SCROLL_SUPPRESS_MS;
@@ -255,7 +263,8 @@ export const useChatScrollManager = ({
         const container = scrollRef.current;
         if (!container) return;
 
-        // Re-pin when explicitly scrolling to bottom
+        // User wants to be at bottom — clear navigation flag and re-pin
+        isNavigatingRef.current = false;
         updatePinnedState(true);
 
         scrollToBottomInternal(options);
@@ -267,6 +276,167 @@ export const useChatScrollManager = ({
         updatePinnedState(false);
         schedulePinnedStateAndIndicators();
     }, [schedulePinnedStateAndIndicators, scrollEngine, updatePinnedState]);
+
+    /** Prepare for intentional scroll navigation — cancel follow, unpin, suppress scroll handler.
+     *  Unlike releasePinnedScroll, does NOT schedule re-evaluation, so it won't fight
+     *  the subsequent scrollTo call. */
+    const prepareForNavigation = React.useCallback(() => {
+        scrollEngine.cancelFollow();
+        updatePinnedState(false);
+        isNavigatingRef.current = true;
+    }, [scrollEngine, updatePinnedState]);
+
+    /**
+     * Find the "tracked turn" — the exchange (prompt + response) that is currently
+     * relevant based on viewport position. This is the turn whose section is at
+     * least partially visible at the bottom of the viewport.
+     */
+    const getTrackedTurn = React.useCallback((): HTMLElement | null => {
+        const container = scrollRef.current;
+        if (!container) return null;
+
+        const turns = container.querySelectorAll<HTMLElement>('[data-turn-id]');
+        if (turns.length === 0) return null;
+
+        const containerRect = container.getBoundingClientRect();
+
+        // Walk turns bottom-up: the tracked turn is the lowest one whose section
+        // overlaps with the viewport (any part of the turn section is visible).
+        for (let i = turns.length - 1; i >= 0; i--) {
+            const turnRect = turns[i].getBoundingClientRect();
+            if (turnRect.top < containerRect.bottom && turnRect.bottom > containerRect.top) {
+                return turns[i];
+            }
+        }
+
+        // All turns are above the viewport — take the last one
+        return turns[turns.length - 1] ?? null;
+    }, []);
+
+    /**
+     * Find the scroll target within a turn section.
+     * Priority:
+     *   1. [data-answer-text] exists → first .group/assistant-text inside it (text paragraph in finished answer)
+     *      → fallback to [data-answer-text] itself if no text paragraph found
+     *   2. No [data-answer-text] → LAST .group/assistant-text in assistant area (nearest text before a question)
+     *   3. Nothing → null (no text content in this turn)
+     */
+    const findAnswerTarget = React.useCallback((turnSection: HTMLElement): HTMLElement | null => {
+        // Primary: finished answer
+        const answerTextEl = turnSection.querySelector<HTMLElement>('[data-answer-text]');
+        if (answerTextEl) {
+            const textParagraph = answerTextEl.querySelector<HTMLElement>('.group\\/assistant-text');
+            return textParagraph ?? answerTextEl;
+        }
+
+        // Fallback: last text paragraph before a question — the nearest context text,
+        // not early throwaway text from before tool calls
+        const assistantArea = turnSection.querySelector<HTMLElement>(':scope > div:last-child');
+        if (!assistantArea) return null;
+        const allText = assistantArea.querySelectorAll<HTMLElement>('.group\\/assistant-text');
+        return allText.length > 0 ? allText[allText.length - 1] : null;
+    }, []);
+
+    /**
+     * Starting from the tracked turn, walk backward through turn sections to find
+     * the nearest one with a text answer target.
+     * Returns the turn element and the target element, or null if none found.
+     */
+    const findNearestAnswerTurn = React.useCallback((): { turn: HTMLElement; answerEl: HTMLElement } | null => {
+        const container = scrollRef.current;
+        const trackedTurn = getTrackedTurn();
+        if (!container || !trackedTurn) return null;
+
+        const turns = container.querySelectorAll<HTMLElement>('[data-turn-id]');
+        const turnsArray = Array.from(turns);
+        const trackedIndex = turnsArray.indexOf(trackedTurn);
+        if (trackedIndex < 0) return null;
+
+        // Walk backward from tracked turn to find the first with a text target
+        for (let i = trackedIndex; i >= 0; i--) {
+            const answerEl = findAnswerTarget(turnsArray[i]);
+            if (answerEl) {
+                return { turn: turnsArray[i], answerEl };
+            }
+        }
+        return null;
+    }, [findAnswerTarget, getTrackedTurn]);
+
+    /**
+     * Get the total height of the sticky header area (header + gradient shadow).
+     * Uses offsetHeight for reliable measurement regardless of sticky scroll state.
+     */
+    const getStickyHeaderOffset = React.useCallback((turnSection: HTMLElement): number => {
+        const stickyHeader = turnSection.querySelector<HTMLElement>(':scope > .sticky');
+        if (!stickyHeader) return 0;
+
+        let offset = stickyHeader.offsetHeight;
+        const shadowEl = stickyHeader.querySelector<HTMLElement>('[aria-hidden="true"]');
+        if (shadowEl) {
+            offset += shadowEl.offsetHeight;
+        }
+        return offset;
+    }, []);
+
+    /**
+     * Scroll to the nearest answer text, positioned right below the sticky header + shadow.
+     * Also unpins from bottom so autoscroll doesn't fight the navigation.
+     */
+    const scrollToCurrentTurnTop = React.useCallback(() => {
+        const container = scrollRef.current;
+        const target = findNearestAnswerTurn();
+        if (!container || !target) return;
+
+        const containerRect = container.getBoundingClientRect();
+        const headerOffset = getStickyHeaderOffset(target.turn);
+
+        const elRect = target.answerEl.getBoundingClientRect();
+        const targetScrollTop = elRect.top - containerRect.top + container.scrollTop - headerOffset;
+
+        // Unpin so autoscroll doesn't fight this intentional navigation
+        prepareForNavigation();
+        scrollEngine.scrollToPosition(Math.max(0, targetScrollTop));
+        setShowScrollUpButton(false);
+    }, [findNearestAnswerTurn, getStickyHeaderOffset, prepareForNavigation, scrollEngine]);
+
+    /**
+     * Check whether the arrow-up button should be visible.
+     * True when there is a nearest answer turn whose text target is above
+     * the visible area (hidden behind or above the sticky header + shadow).
+     */
+    const isAboveCurrentTurnTop = React.useCallback((): boolean => {
+        const container = scrollRef.current;
+        const target = findNearestAnswerTurn();
+        if (!container || !target) return false;
+
+        const containerRect = container.getBoundingClientRect();
+        const headerOffset = getStickyHeaderOffset(target.turn);
+        const answerRect = target.answerEl.getBoundingClientRect();
+
+        // Arrow shows when the answer's top is above the header bottom edge
+        return answerRect.top < containerRect.top + headerOffset;
+    }, [findNearestAnswerTurn, getStickyHeaderOffset]);
+
+    /** Show the scroll-up button temporarily, then hide after idle delay. */
+    const flashScrollUpButton = React.useCallback(() => {
+        if (!isAboveCurrentTurnTop()) {
+            setShowScrollUpButton(false);
+            return;
+        }
+        setShowScrollUpButton(true);
+
+        if (scrollUpHideTimerRef.current) clearTimeout(scrollUpHideTimerRef.current);
+        scrollUpHideTimerRef.current = setTimeout(() => {
+            setShowScrollUpButton(false);
+        }, SCROLL_UP_HIDE_DELAY_MS);
+    }, [isAboveCurrentTurnTop]);
+
+    // Cleanup timer on unmount
+    React.useEffect(() => {
+        return () => {
+            if (scrollUpHideTimerRef.current) clearTimeout(scrollUpHideTimerRef.current);
+        };
+    }, []);
 
     const handleScrollEvent = React.useCallback((event?: Event) => {
         const container = scrollRef.current;
@@ -292,8 +462,9 @@ export const useChatScrollManager = ({
             }
         }
 
-        // Re-pin at bottom should always work (even momentum scroll)
-        if (!isPinnedRef.current) {
+        // Re-pin at bottom should always work (even momentum scroll),
+        // but NOT during intentional navigation (lightbulb/arrow-up scroll)
+        if (!isPinnedRef.current && !isNavigatingRef.current) {
             const distanceFromBottom = getDistanceFromBottom();
             if (distanceFromBottom <= getPinThreshold()) {
                 updatePinnedState(true);
@@ -302,12 +473,18 @@ export const useChatScrollManager = ({
 
         lastScrollTopRef.current = currentScrollTop;
 
+        // Show ephemeral scroll-up button on user-initiated scroll
+        if (event?.isTrusted && hasDirectIntent) {
+            flashScrollUpButton();
+        }
+
         const { scrollTop, scrollHeight, clientHeight } = container;
         const position = (scrollTop + clientHeight / 2) / Math.max(scrollHeight, 1);
         const estimatedIndex = Math.floor(position * sessionMessages.length);
         queueViewportAnchor(currentSessionId, estimatedIndex);
     }, [
         currentSessionId,
+        flashScrollUpButton,
         getDistanceFromBottom,
         getPinThreshold,
         queueViewportAnchor,
@@ -322,6 +499,9 @@ export const useChatScrollManager = ({
         if (!container) {
             return;
         }
+
+        // User is actively scrolling — clear navigation flag so re-pin can work
+        isNavigatingRef.current = false;
 
         const delta = normalizeWheelDelta({
             deltaY: event.deltaY,
@@ -355,6 +535,9 @@ export const useChatScrollManager = ({
 
         const handleTouchMoveIntent = (event: TouchEvent) => {
             markDirectIntent();
+
+            // User is actively scrolling with finger — clear navigation flag so re-pin can work
+            isNavigatingRef.current = false;
 
             const touch = event.touches.item(0);
             if (!touch) {
@@ -418,6 +601,7 @@ export const useChatScrollManager = ({
         }
 
         lastSessionIdRef.current = currentSessionId;
+        isNavigatingRef.current = false;
         MessageFreshnessDetector.getInstance().recordSessionStart(currentSessionId);
         flushViewportAnchor();
         pendingViewportAnchorRef.current = null;
@@ -635,9 +819,12 @@ export const useChatScrollManager = ({
         handleMessageContentChange,
         getAnimationHandlers,
         showScrollButton,
+        showScrollUpButton,
         scrollToBottom,
+        scrollToCurrentTurnTop,
         scrollToPosition,
         releasePinnedScroll,
+        prepareForNavigation,
         isPinned,
         isOverflowing,
         isProgrammaticFollowActive: scrollEngine.isFollowingBottom,
