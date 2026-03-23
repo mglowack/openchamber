@@ -125,6 +125,7 @@ interface ChatMessageProps {
     turnGroupingContext?: TurnGroupingContext;
     animateUserOnMount?: boolean;
     onUserAnimationConsumed?: (messageId: string) => void;
+    onJumpToAnswer?: () => void;
 }
 
 const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -136,6 +137,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     turnGroupingContext,
     animateUserOnMount = false,
     onUserAnimationConsumed,
+    onJumpToAnswer,
 }) => {
     const { isMobile, hasTouchInput } = useDeviceInfo();
     const { currentTheme } = useThemeSystem();
@@ -206,7 +208,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
 
     const messageRole = React.useMemo(() => deriveMessageRole(message.info), [message.info]);
     const isUser = messageRole.isUser;
-    const useExternalUserActionsRow = isUser && (isMobile || !stickyUserHeader);
+    const useExternalUserActionsRow = isUser;
     const showStickyInlineHoverRow = isUser && !isMobile && stickyUserHeader && !useExternalUserActionsRow;
 
     const sessionId = message.info.sessionID;
@@ -1030,6 +1032,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                                 agentMention={agentMention}
                                                 onRevert={handleRevert}
                                                 onFork={isUser ? handleFork : undefined}
+                                                onJumpToAnswer={isUser ? onJumpToAnswer : undefined}
                                                 errorMessage={assistantErrorText}
                                                 userActionsMode={useExternalUserActionsRow ? 'external-content' : 'inline'}
                                                 stickyUserHeaderEnabled={stickyUserHeader}
@@ -1062,6 +1065,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                                 agentMention={agentMention}
                                                 onRevert={handleRevert}
                                                 onFork={isUser ? handleFork : undefined}
+                                                onJumpToAnswer={isUser ? onJumpToAnswer : undefined}
                                                 errorMessage={assistantErrorText}
                                                 userActionsMode="external-actions"
                                                 stickyUserHeaderEnabled={stickyUserHeader}
