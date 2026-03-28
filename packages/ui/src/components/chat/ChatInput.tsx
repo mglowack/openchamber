@@ -2705,13 +2705,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onOpenSettings, scrollToBo
 
     // Execute/Build button - switches to build agent and sends "go" (or current input)
     const hasBuildAgent = agents.some(a => a.name === 'build');
-    const canExecuteBuild = hasBuildAgent && hasPlan && (currentSessionId || newSessionDraftOpen) && !!currentProviderId && !!currentModelId;
+    const canExecuteBuild = hasBuildAgent && hasPlan && currentAgentName === 'plan'
+        && (currentSessionId || newSessionDraftOpen) && !!currentProviderId && !!currentModelId;
+    const isBuildInProgress = canAbort && hasPlan;
+
+    let executeBuildButtonClass: string;
+    if (isBuildInProgress) {
+        executeBuildButtonClass = 'text-[var(--status-error)] animate-pulse [animation-duration:1.5s]';
+    } else if (canExecuteBuild) {
+        executeBuildButtonClass = 'text-[var(--status-error)] hover:text-[var(--status-error)]';
+    } else {
+        executeBuildButtonClass = 'opacity-30';
+    }
+
     const executeBuildButton = hasBuildAgent ? (
         <Tooltip delayDuration={600}>
             <TooltipTrigger asChild>
                 <button
                     type="button"
-                    disabled={!canExecuteBuild}
+                    disabled={!canExecuteBuild || isBuildInProgress}
                     onClick={(event) => {
                         event.preventDefault();
                         handleExecuteBuild();
@@ -2719,12 +2731,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onOpenSettings, scrollToBo
                     onMouseDown={(event) => {
                         event.preventDefault();
                     }}
-                    className={cn(
-                        footerIconButtonClass,
-                        canExecuteBuild
-                            ? 'text-[var(--status-error)] hover:text-[var(--status-error)]'
-                            : 'opacity-30'
-                    )}
+                    className={cn(footerIconButtonClass, executeBuildButtonClass)}
                     aria-label="Execute with build agent"
                 >
                     <RiRocketLine className={cn(sendIconSizeClass)} />
@@ -2732,21 +2739,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onOpenSettings, scrollToBo
             </TooltipTrigger>
             <TooltipContent side="top" sideOffset={8}>
                 <div className="flex flex-col gap-0.5 text-center">
-                    <span>Execute with build</span>
-                    <span className="font-mono opacity-60">
-                        {isMacOS() ? '⌘⇧Enter' : 'Ctrl+Shift+Enter'}
-                    </span>
+                    <span>{isBuildInProgress ? 'Build in progress' : 'Execute with build'}</span>
+                    {!isBuildInProgress && (
+                        <span className="font-mono opacity-60">
+                            {isMacOS() ? '⌘⇧Enter' : 'Ctrl+Shift+Enter'}
+                        </span>
+                    )}
                 </div>
             </TooltipContent>
         </Tooltip>
     ) : null;
 
     // Action buttons area: either send button, or stop (+ optional queue button floating above)
-    // Execute/build button is hidden when working (canAbort), shown after send when idle
+    // Execute/build button is always visible (pulses red when building, dimmed when inactive)
     const actionButtons = canAbort ? (
-        <div className="relative">
+        <div className="relative flex items-center gap-x-0.5">
             {hasContent && queueButton}
             {stopButton}
+            {executeBuildButton}
         </div>
     ) : (
         <div className="flex items-center gap-x-0.5">
