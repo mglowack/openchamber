@@ -115,6 +115,18 @@ export const useKeyboardShortcuts = () => {
         return;
       }
 
+      if (eventMatchesShortcut(e, combo('navigate_prev_turn'))) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('openchamber:navigate-turn', { detail: -1 }));
+        return;
+      }
+
+      if (eventMatchesShortcut(e, combo('navigate_next_turn'))) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('openchamber:navigate-turn', { detail: 1 }));
+        return;
+      }
+
       if (eventMatchesShortcut(e, combo('open_settings'))) {
         e.preventDefault();
         const { isSettingsDialogOpen } = useUIStore.getState();

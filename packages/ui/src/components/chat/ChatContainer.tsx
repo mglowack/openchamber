@@ -294,6 +294,26 @@ export const ChatContainer: React.FC = () => {
         };
     }, [currentSessionId, resumeToBottomInstant]);
 
+    // Keyboard shortcut: Alt+↑ / Alt+↓ → navigate between turns
+    React.useEffect(() => {
+        const handleNavigateTurn = (event: Event) => {
+            const offset = (event as CustomEvent<number>).detail;
+            releasePinnedScroll();
+            void navigation.scrollByTurnOffset(offset);
+        };
+
+        window.addEventListener('openchamber:navigate-turn', handleNavigateTurn);
+        return () => {
+            window.removeEventListener('openchamber:navigate-turn', handleNavigateTurn);
+        };
+    }, [navigation, releasePinnedScroll]);
+
+    // Callback for turn navigation from the user actions toolbar
+    const handleNavigateTurn = React.useCallback((offset: number) => {
+        releasePinnedScroll();
+        void navigation.scrollByTurnOffset(offset);
+    }, [navigation, releasePinnedScroll]);
+
     React.useLayoutEffect(() => {
         const container = scrollRef.current;
         if (!container) {
@@ -521,6 +541,9 @@ export const ChatContainer: React.FC = () => {
                                 scrollToBottom={scrollToBottom}
                                 scrollRef={scrollRef}
                                 prepareForNavigation={prepareForNavigation}
+                                turnIds={timelineController.turnIds}
+                                activeTurnId={timelineController.activeTurnId}
+                                onNavigateTurn={handleNavigateTurn}
                             />
                         </div>
                     </ScrollShadow>

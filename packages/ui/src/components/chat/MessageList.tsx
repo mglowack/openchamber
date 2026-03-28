@@ -360,6 +360,9 @@ interface MessageListProps {
     scrollToBottom?: (options?: { instant?: boolean; force?: boolean }) => void;
     scrollRef?: React.RefObject<HTMLDivElement | null>;
     prepareForNavigation?: () => void;
+    turnIds?: string[];
+    activeTurnId?: string | null;
+    onNavigateTurn?: (offset: number) => void;
 }
 
 export interface MessageListHandle {
@@ -394,6 +397,9 @@ interface MessageRowProps {
     animationHandlers: AnimationHandlers;
     scrollToBottom?: (options?: { instant?: boolean; force?: boolean }) => void;
     onJumpToAnswer?: () => void;
+    turnIndex?: number;
+    totalTurns?: number;
+    onNavigateTurn?: (offset: number) => void;
 }
 
 const MessageRow = React.memo<MessageRowProps>(({
@@ -407,6 +413,9 @@ const MessageRow = React.memo<MessageRowProps>(({
     animationHandlers,
     scrollToBottom,
     onJumpToAnswer,
+    turnIndex,
+    totalTurns,
+    onNavigateTurn,
 }) => {
     return (
         <ChatMessage
@@ -420,6 +429,9 @@ const MessageRow = React.memo<MessageRowProps>(({
             scrollToBottom={scrollToBottom}
             turnGroupingContext={turnGroupingContext}
             onJumpToAnswer={onJumpToAnswer}
+            turnIndex={turnIndex}
+            totalTurns={totalTurns}
+            onNavigateTurn={onNavigateTurn}
         />
     );
 });
@@ -443,6 +455,9 @@ interface TurnBlockProps {
     scrollRef?: React.RefObject<HTMLDivElement | null>;
     prepareForNavigation?: () => void;
     hasActiveQuestion?: boolean;
+    turnIndex?: number;
+    totalTurns?: number;
+    onNavigateTurn?: (offset: number) => void;
 }
 
 const TurnBlock: React.FC<TurnBlockProps> = ({
@@ -462,6 +477,9 @@ const TurnBlock: React.FC<TurnBlockProps> = ({
     scrollRef,
     prepareForNavigation,
     hasActiveQuestion = false,
+    turnIndex,
+    totalTurns,
+    onNavigateTurn,
 }) => {
     const turnUiState = turnUiStates.get(turn.turnId) ?? { isExpanded: defaultActivityExpanded };
 
@@ -655,6 +673,9 @@ const TurnBlock: React.FC<TurnBlockProps> = ({
                     animationHandlers={getAnimationHandlers(message.info.id)}
                     scrollToBottom={scrollToBottom}
                     onJumpToAnswer={isUserMessage && hasCompleteResponse ? jumpToAnswer : undefined}
+                    turnIndex={isUserMessage ? turnIndex : undefined}
+                    totalTurns={isUserMessage ? totalTurns : undefined}
+                    onNavigateTurn={isUserMessage ? onNavigateTurn : undefined}
                 />
             );
         },
@@ -666,10 +687,13 @@ const TurnBlock: React.FC<TurnBlockProps> = ({
             messageOrder.lookup,
             messageOrder.ordered,
             onMessageContentChange,
+            onNavigateTurn,
             scrollToBottom,
             sessionIsWorking,
+            totalTurns,
             turn.turnId,
             turn.userMessage.info.id,
+            turnIndex,
             turnUiState.isExpanded,
             turnGroupingContextBase,
             visibleAssistantMessages,
@@ -750,6 +774,9 @@ interface MessageListEntryProps {
     scrollRef?: React.RefObject<HTMLDivElement | null>;
     prepareForNavigation?: () => void;
     hasActiveQuestion?: boolean;
+    turnIndex?: number;
+    totalTurns?: number;
+    onNavigateTurn?: (offset: number) => void;
 }
 
 const MessageListEntry: React.FC<MessageListEntryProps> = React.memo(({
@@ -768,6 +795,9 @@ const MessageListEntry: React.FC<MessageListEntryProps> = React.memo(({
     scrollRef,
     prepareForNavigation,
     hasActiveQuestion,
+    turnIndex,
+    totalTurns,
+    onNavigateTurn,
 }) => {
     if (entry.kind === 'ungrouped') {
         return (
@@ -802,6 +832,9 @@ const MessageListEntry: React.FC<MessageListEntryProps> = React.memo(({
             scrollRef={scrollRef}
             prepareForNavigation={prepareForNavigation}
             hasActiveQuestion={hasActiveQuestion}
+            turnIndex={turnIndex}
+            totalTurns={totalTurns}
+            onNavigateTurn={onNavigateTurn}
         />
     );
 }, areMessageListEntryPropsEqual);
@@ -830,6 +863,10 @@ function areMessageListEntryPropsEqual(prevProps: MessageListEntryProps, nextPro
         }
 
         if (prevEntry.isLastTurn && prevProps.sessionIsWorking !== nextProps.sessionIsWorking) {
+            return false;
+        }
+
+        if (prevProps.turnIndex !== nextProps.turnIndex || prevProps.totalTurns !== nextProps.totalTurns) {
             return false;
         }
 
@@ -864,8 +901,25 @@ const MessageListContent: React.FC<{
     scrollRef?: React.RefObject<HTMLDivElement | null>;
     prepareForNavigation?: () => void;
     hasActiveQuestion?: boolean;
-}> = ({ entries, onMessageContentChange, getAnimationHandlers, scrollToBottom, stickyUserHeader, sessionIsWorking, defaultActivityExpanded, turnUiStates, onToggleTurnGroup, chatRenderMode, shouldAnimateUserMessage, onUserAnimationConsumed, scrollRef, prepareForNavigation, hasActiveQuestion }) => {
+    turnIds?: string[];
+    onNavigateTurn?: (offset: number) => void;
+}> = ({ entries, onMessageContentChange, getAnimationHandlers, scrollToBottom, stickyUserHeader, sessionIsWorking, defaultActivityExpanded, turnUiStates, onToggleTurnGroup, chatRenderMode, shouldAnimateUserMessage, onUserAnimationConsumed, scrollRef, prepareForNavigation, hasActiveQuestion, turnIds, onNavigateTurn }) => {
+    const totalTurns = turnIds?.length ?? 0;
+
+    const turnIndexLookup = React.useMemo(() => {
+        if (!turnIds) return null;
+        const lookup = new Map<string, number>();
+        for (let i = 0; i < turnIds.length; i++) {
+            lookup.set(turnIds[i], i);
+        }
+        return lookup;
+    }, [turnIds]);
+
     const renderEntry = React.useCallback((entry: RenderEntry) => {
+        const entryTurnIndex = entry.kind === 'turn' && turnIndexLookup
+            ? turnIndexLookup.get(entry.turn.turnId)
+            : undefined;
+
         return (
             <MessageListEntry
                 key={entry.key}
@@ -884,9 +938,12 @@ const MessageListContent: React.FC<{
                 scrollRef={scrollRef}
                 prepareForNavigation={prepareForNavigation}
                 hasActiveQuestion={hasActiveQuestion}
+                turnIndex={entryTurnIndex}
+                totalTurns={totalTurns}
+                onNavigateTurn={onNavigateTurn}
             />
         );
-    }, [chatRenderMode, defaultActivityExpanded, getAnimationHandlers, hasActiveQuestion, onMessageContentChange, onToggleTurnGroup, onUserAnimationConsumed, prepareForNavigation, scrollRef, scrollToBottom, sessionIsWorking, shouldAnimateUserMessage, stickyUserHeader, turnUiStates]);
+    }, [chatRenderMode, defaultActivityExpanded, getAnimationHandlers, hasActiveQuestion, onMessageContentChange, onNavigateTurn, onToggleTurnGroup, onUserAnimationConsumed, prepareForNavigation, scrollRef, scrollToBottom, sessionIsWorking, shouldAnimateUserMessage, stickyUserHeader, totalTurns, turnIndexLookup, turnUiStates]);
 
     return (
         <TurnList entries={entries} renderEntry={renderEntry} />
@@ -908,6 +965,8 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
     scrollToBottom,
     scrollRef,
     prepareForNavigation,
+    turnIds,
+    onNavigateTurn,
 }, ref) => {
     const { isMobile } = useDeviceInfo();
     const { isWorking: sessionIsWorking } = useCurrentSessionActivity();
@@ -918,6 +977,15 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
     const chatRenderMode = useUIStore((state) => state.chatRenderMode);
     const activityRenderMode = useUIStore((state) => state.activityRenderMode);
     const defaultActivityExpanded = activityRenderMode === 'summary';
+    const totalTurns = turnIds?.length ?? 0;
+    const turnIndexLookup = React.useMemo(() => {
+        if (!turnIds) return null;
+        const lookup = new Map<string, number>();
+        for (let i = 0; i < turnIds.length; i++) {
+            lookup.set(turnIds[i], i);
+        }
+        return lookup;
+    }, [turnIds]);
     const [turnUiStates, setTurnUiStates] = React.useState<Map<string, TurnUiState>>(() => new Map());
     const userAnimationRef = React.useRef<{
         sessionKey: string | undefined;
@@ -1568,6 +1636,9 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
                                             scrollRef={scrollRef}
                                             prepareForNavigation={prepareForNavigation}
                                             hasActiveQuestion={hasActiveQuestion}
+                                            turnIndex={entry.kind === 'turn' && turnIndexLookup ? turnIndexLookup.get(entry.turn.turnId) : undefined}
+                                            totalTurns={totalTurns}
+                                            onNavigateTurn={onNavigateTurn}
                                         />
                                     </div>
                                 );
@@ -1592,6 +1663,8 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
                             scrollRef={scrollRef}
                             prepareForNavigation={prepareForNavigation}
                             hasActiveQuestion={hasActiveQuestion}
+                            turnIds={turnIds}
+                            onNavigateTurn={onNavigateTurn}
                         />
                         </div>
                     )}
