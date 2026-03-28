@@ -312,6 +312,20 @@ const SHORTCUT_ACTIONS: ReadonlyArray<ShortcutAction> = [
     customizable: true,
   },
   {
+    id: 'navigate_prev_turn',
+    defaultCombo: 'alt+arrowup',
+    label: 'Previous turn',
+    description: 'Jump to the previous user prompt',
+    customizable: true,
+  },
+  {
+    id: 'navigate_next_turn',
+    defaultCombo: 'alt+arrowdown',
+    label: 'Next turn',
+    description: 'Jump to the next user prompt',
+    customizable: true,
+  },
+  {
     id: 'abort_run',
     defaultCombo: 'escape',
     label: 'Abort active run',

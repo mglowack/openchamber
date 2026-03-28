@@ -126,6 +126,9 @@ interface ChatMessageProps {
     animateUserOnMount?: boolean;
     onUserAnimationConsumed?: (messageId: string) => void;
     onJumpToAnswer?: () => void;
+    turnIndex?: number;
+    totalTurns?: number;
+    onNavigateTurn?: (offset: number) => void;
 }
 
 const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -138,6 +141,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     animateUserOnMount = false,
     onUserAnimationConsumed,
     onJumpToAnswer,
+    turnIndex,
+    totalTurns,
+    onNavigateTurn,
 }) => {
     const { isMobile, hasTouchInput } = useDeviceInfo();
     const { currentTheme } = useThemeSystem();
@@ -1036,6 +1042,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                                 errorMessage={assistantErrorText}
                                                 userActionsMode={useExternalUserActionsRow ? 'external-content' : 'inline'}
                                                 stickyUserHeaderEnabled={stickyUserHeader}
+                                                turnIndex={isUser ? turnIndex : undefined}
+                                                totalTurns={isUser ? totalTurns : undefined}
+                                                onNavigateTurn={isUser ? onNavigateTurn : undefined}
                                             />
                                         </div>
                                         {useExternalUserActionsRow ? (
@@ -1069,6 +1078,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                                 errorMessage={assistantErrorText}
                                                 userActionsMode="external-actions"
                                                 stickyUserHeaderEnabled={stickyUserHeader}
+                                                turnIndex={isUser ? turnIndex : undefined}
+                                                totalTurns={isUser ? totalTurns : undefined}
+                                                onNavigateTurn={isUser ? onNavigateTurn : undefined}
                                             />
                                         ) : null}
                                     </div>
