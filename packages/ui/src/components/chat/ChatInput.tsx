@@ -10,6 +10,7 @@ import {
     RiFolderLine,
     RiFullscreenLine,
     RiGitPullRequestLine,
+    RiRocketLine,
     RiShieldCheckLine,
     RiShieldUserLine,
     RiGithubLine,
@@ -1170,6 +1171,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onOpenSettings, scrollToBo
             return;
         }
 
+        // Handle Cmd/Ctrl+Shift+Enter → execute with build agent
+        if (e.key === 'Enter' && e.shiftKey && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            handleExecuteBuild();
+            return;
+        }
+
         // Handle Enter/Ctrl+Enter based on queue mode
         if (e.key === 'Enter' && !e.shiftKey && (!isMobile || e.ctrlKey || e.metaKey)) {
             e.preventDefault();
@@ -1357,6 +1365,57 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onOpenSettings, scrollToBo
             saveSessionAgentSelection(currentSessionId, nextAgent.name);
         }
     }, [primaryAgents, currentAgentName, currentSessionId, setAgent, saveSessionAgentSelection]);
+
+    // Execute with build agent: switch to "build" and send current message (or "go" if empty)
+    const handleExecuteBuild = React.useCallback(() => {
+        const buildAgent = agents.find(a => a.name === 'build');
+        if (!buildAgent) return;
+        if (!currentProviderId || !currentModelId) return;
+        if (!currentSessionId && !newSessionDraftOpen) return;
+
+        // Switch to build agent
+        if (currentAgentName !== 'build') {
+            setAgent('build');
+            if (currentSessionId) {
+                saveSessionAgentSelection(currentSessionId, 'build');
+            }
+        }
+
+        // Use current input or default to "go"
+        const currentText = messageRef.current?.trim() || '';
+        const textToSend = currentText || 'go';
+
+        // Clear input state
+        setMessage('');
+        saveStoredDraft(currentSessionId, '');
+        setHistoryIndex(-1);
+        setDraftMessage('');
+        if (attachedFiles.length > 0) {
+            clearAttachedFiles();
+        }
+        setExpandedInput(false);
+
+        scrollToBottom?.({ instant: true, force: true });
+
+        // Send directly with build agent override
+        void sendMessage(
+            textToSend,
+            currentProviderId,
+            currentModelId,
+            'build',
+            sanitizeAttachmentsForSend(sendableAttachedFiles),
+            undefined,
+            undefined,
+            currentVariant,
+            inputMode
+        );
+
+        if (isMobile) {
+            textareaRef.current?.blur();
+        } else {
+            textareaRef.current?.focus();
+        }
+    }, [agents, currentAgentName, currentSessionId, newSessionDraftOpen, currentProviderId, currentModelId, currentVariant, inputMode, attachedFiles, sendableAttachedFiles, sanitizeAttachmentsForSend, setAgent, saveSessionAgentSelection, setMessage, clearAttachedFiles, setExpandedInput, sendMessage, scrollToBottom, isMobile]);
 
     const adjustTextareaHeight = React.useCallback(() => {
         const textarea = textareaRef.current;
@@ -2642,14 +2701,56 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onOpenSettings, scrollToBo
         </button>
     );
 
+    // Execute/Build button - switches to build agent and sends "go" (or current input)
+    const hasBuildAgent = agents.some(a => a.name === 'build');
+    const canExecuteBuild = hasBuildAgent && (currentSessionId || newSessionDraftOpen) && !!currentProviderId && !!currentModelId;
+    const executeBuildButton = hasBuildAgent ? (
+        <Tooltip delayDuration={600}>
+            <TooltipTrigger asChild>
+                <button
+                    type="button"
+                    disabled={!canExecuteBuild}
+                    onClick={(event) => {
+                        event.preventDefault();
+                        handleExecuteBuild();
+                    }}
+                    onMouseDown={(event) => {
+                        event.preventDefault();
+                    }}
+                    className={cn(
+                        footerIconButtonClass,
+                        canExecuteBuild
+                            ? 'text-foreground hover:text-primary'
+                            : 'opacity-30'
+                    )}
+                    aria-label="Execute with build agent"
+                >
+                    <RiRocketLine className={cn(sendIconSizeClass)} />
+                </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={8}>
+                <div className="flex flex-col gap-0.5 text-center">
+                    <span>Execute with build</span>
+                    <span className="font-mono opacity-60">
+                        {isMacOS() ? '⌘⇧Enter' : 'Ctrl+Shift+Enter'}
+                    </span>
+                </div>
+            </TooltipContent>
+        </Tooltip>
+    ) : null;
+
     // Action buttons area: either send button, or stop (+ optional queue button floating above)
     const actionButtons = canAbort ? (
-        <div className="relative">
+        <div className="relative flex items-center gap-x-0.5">
+            {executeBuildButton}
             {hasContent && queueButton}
             {stopButton}
         </div>
     ) : (
-        sendButton
+        <div className="flex items-center gap-x-0.5">
+            {executeBuildButton}
+            {sendButton}
+        </div>
     );
 
     const attachmentMenu = (

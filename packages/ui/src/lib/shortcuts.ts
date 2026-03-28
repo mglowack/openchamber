@@ -299,6 +299,12 @@ const SHORTCUT_ACTIONS: ReadonlyArray<ShortcutAction> = [
     customizable: true,
   },
   {
+    id: 'execute_build',
+    defaultCombo: 'mod+shift+enter',
+    label: 'Execute with build agent',
+    description: 'Switch to build agent and send the current message (or "go" if empty)',
+  },
+  {
     id: 'expand_input',
     defaultCombo: 'mod+shift+e',
     label: 'Expand input',
