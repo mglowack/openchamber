@@ -414,77 +414,27 @@ const UserMessageBody: React.FC<{
                 ? userActionsMode === 'inline'
                     ? 'flex items-center justify-end pt-2 pb-3'
                     : stickyUserHeaderEnabled
-                        ? 'flex h-9 items-start pt-0'
-                        : 'flex h-11 items-start pt-0'
+                        ? 'flex h-9 items-start justify-end pt-0'
+                        : 'flex h-11 items-start justify-end pt-0'
                 : userActionsMode === 'inline'
                     ? 'absolute top-full left-0 right-0 z-10 pt-5'
-                    : 'flex h-8 items-start pt-2'
+                    : 'flex h-8 items-start justify-end pt-2'
         )}>
             <div
                 className={cn(
-                    'flex items-center w-full gap-1',
-                    showTurnNav ? 'justify-between' : 'justify-end',
+                    'flex items-center justify-end gap-1',
                     isMobile
                         ? userActionsMode === 'inline'
-                            ? showTurnNav ? '' : 'translate-x-5'
+                            ? 'translate-x-5'
                             : 'translate-x-0'
                         : userActionsMode === 'inline'
-                            ? showTurnNav ? '' : 'translate-x-5'
+                            ? 'translate-x-5'
                             : 'translate-x-0',
                     isMobile
                         ? 'pointer-events-auto opacity-100'
                         : 'pointer-events-none opacity-0 transition-opacity duration-150 group-hover/message:pointer-events-auto group-hover/message:opacity-100 group-hover/user-actions:pointer-events-auto group-hover/user-actions:opacity-100 group-hover/user-shell:pointer-events-auto group-hover/user-shell:opacity-100'
                 )}
             >
-                {/* Left: turn navigation arrows + counter */}
-                {showTurnNav && (
-                    <div className="flex items-center gap-0.5">
-                        <Tooltip delayDuration={1000}>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    disabled={turnIndex === 0}
-                                    className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-30 disabled:pointer-events-none"
-                                    aria-label="Previous turn"
-                                    onPointerDown={(event) => event.stopPropagation()}
-                                    onClick={(event) => {
-                                        event.stopPropagation();
-                                        onNavigateTurn(-1);
-                                    }}
-                                >
-                                    <RiArrowUpLine className="h-3 w-3" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={6}>Previous turn</TooltipContent>
-                        </Tooltip>
-                        <span className="text-xs text-muted-foreground tabular-nums select-none px-0.5">{turnIndex + 1}/{totalTurns}</span>
-                        <Tooltip delayDuration={1000}>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    disabled={turnIndex === totalTurns - 1}
-                                    className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-30 disabled:pointer-events-none"
-                                    aria-label="Next turn"
-                                    onPointerDown={(event) => event.stopPropagation()}
-                                    onClick={(event) => {
-                                        event.stopPropagation();
-                                        onNavigateTurn(1);
-                                    }}
-                                >
-                                    <RiArrowDownLine className="h-3 w-3" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={6}>Next turn</TooltipContent>
-                        </Tooltip>
-                    </div>
-                )}
-
-                {/* Right: revert, fork, copy, jump-to-answer */}
-                <div className="flex items-center gap-1">
                 {onRevert && (
                     <Tooltip delayDuration={1000}>
                         <TooltipTrigger asChild>
@@ -577,7 +527,53 @@ const UserMessageBody: React.FC<{
                         <TooltipContent sideOffset={6}>Jump to answer</TooltipContent>
                     </Tooltip>
                 )}
-                </div>
+                {/* Turn navigation: separator + ↑ counter ↓ — pinned to far right */}
+                {showTurnNav && (
+                    <>
+                        <div className="h-4 w-px bg-border/50 mx-0.5 shrink-0" aria-hidden="true" />
+                        <Tooltip delayDuration={1000}>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={turnIndex === 0}
+                                    className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-30 disabled:pointer-events-none"
+                                    aria-label="Previous turn"
+                                    onPointerDown={(event) => event.stopPropagation()}
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        onNavigateTurn(-1);
+                                    }}
+                                >
+                                    <RiArrowUpLine className="h-3 w-3" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={6}>Previous turn</TooltipContent>
+                        </Tooltip>
+                        <span className="min-w-[3.5rem] text-center text-xs text-muted-foreground tabular-nums select-none shrink-0">{turnIndex + 1}/{totalTurns}</span>
+                        <Tooltip delayDuration={1000}>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={turnIndex === totalTurns - 1}
+                                    className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-30 disabled:pointer-events-none"
+                                    aria-label="Next turn"
+                                    onPointerDown={(event) => event.stopPropagation()}
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        onNavigateTurn(1);
+                                    }}
+                                >
+                                    <RiArrowDownLine className="h-3 w-3" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={6}>Next turn</TooltipContent>
+                        </Tooltip>
+                    </>
+                )}
             </div>
         </div>
     ) : null;
