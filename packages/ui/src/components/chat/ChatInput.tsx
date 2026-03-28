@@ -59,6 +59,7 @@ import { useThemeSystem } from '@/contexts/useThemeSystem';
 import { GitHubIssuePickerDialog } from '@/components/session/GitHubIssuePickerDialog';
 import { GitHubPrPickerDialog } from '@/components/session/GitHubPrPickerDialog';
 import { useChatSearchDirectory } from '@/hooks/useChatSearchDirectory';
+import { useSessionHasPlan } from '@/hooks/useSessionHasPlan';
 import { opencodeClient } from '@/lib/opencode/client';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 import { PROJECT_COLOR_MAP, PROJECT_ICON_MAP, getProjectIconImageUrl } from '@/lib/projectMeta';
@@ -231,6 +232,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onOpenSettings, scrollToBo
     const { git: runtimeGit } = useRuntimeAPIs();
     const { currentTheme } = useThemeSystem();
     const chatSearchDirectory = useChatSearchDirectory();
+    const hasPlan = useSessionHasPlan();
     const [showAbortStatus, setShowAbortStatus] = React.useState(false);
     const [textareaScrollTop, setTextareaScrollTop] = React.useState(0);
     const setSessionAutoAccept = usePermissionStore((state) => state.setSessionAutoAccept);
@@ -2703,7 +2705,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onOpenSettings, scrollToBo
 
     // Execute/Build button - switches to build agent and sends "go" (or current input)
     const hasBuildAgent = agents.some(a => a.name === 'build');
-    const canExecuteBuild = hasBuildAgent && (currentSessionId || newSessionDraftOpen) && !!currentProviderId && !!currentModelId;
+    const canExecuteBuild = hasBuildAgent && hasPlan && (currentSessionId || newSessionDraftOpen) && !!currentProviderId && !!currentModelId;
     const executeBuildButton = hasBuildAgent ? (
         <Tooltip delayDuration={600}>
             <TooltipTrigger asChild>
@@ -2720,7 +2722,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onOpenSettings, scrollToBo
                     className={cn(
                         footerIconButtonClass,
                         canExecuteBuild
-                            ? 'text-foreground hover:text-primary'
+                            ? 'text-[var(--status-error)] hover:text-[var(--status-error)]'
                             : 'opacity-30'
                     )}
                     aria-label="Execute with build agent"
@@ -2740,16 +2742,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onOpenSettings, scrollToBo
     ) : null;
 
     // Action buttons area: either send button, or stop (+ optional queue button floating above)
+    // Execute/build button is hidden when working (canAbort), shown after send when idle
     const actionButtons = canAbort ? (
-        <div className="relative flex items-center gap-x-0.5">
-            {executeBuildButton}
+        <div className="relative">
             {hasContent && queueButton}
             {stopButton}
         </div>
     ) : (
         <div className="flex items-center gap-x-0.5">
-            {executeBuildButton}
             {sendButton}
+            {executeBuildButton}
         </div>
     );
 
