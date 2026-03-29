@@ -401,8 +401,8 @@ export const useChatScrollManager = ({
 
     /** Flash the scroll-up button when the currently visible turn has an answer, then auto-hide. */
     const flashScrollUpButton = React.useCallback(() => {
-        const hasAnswer = findNearestAnswerTurn() !== null;
-        if (!hasAnswer) {
+        const trackedTurn = getTrackedTurn();
+        if (!trackedTurn || !findAnswerTarget(trackedTurn)) {
             setShowScrollUpButton(false);
             return;
         }
@@ -412,7 +412,7 @@ export const useChatScrollManager = ({
         scrollUpHideTimerRef.current = setTimeout(() => {
             setShowScrollUpButton(false);
         }, SCROLL_UP_HIDE_DELAY_MS);
-    }, [findNearestAnswerTurn]);
+    }, [getTrackedTurn, findAnswerTarget]);
 
     // Cleanup timer on unmount
     React.useEffect(() => {
