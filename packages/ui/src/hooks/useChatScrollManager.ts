@@ -77,7 +77,7 @@ const DIRECT_SCROLL_INTENT_WINDOW_MS = 250;
 const PIN_THRESHOLD_RATIO = 0.10;
 const VIEWPORT_ANCHOR_MIN_UPDATE_MS = 150;
 // How long the scroll-up button stays visible after the user stops scrolling
-const SCROLL_UP_HIDE_DELAY_MS = 1000;
+const SCROLL_UP_HIDE_DELAY_MS = 3000;
 
 export const useChatScrollManager = ({
     currentSessionId,

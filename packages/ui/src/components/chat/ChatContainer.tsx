@@ -1,5 +1,5 @@
 import React from 'react';
-import { RiArrowUpLine, RiArrowLeftLine } from '@remixicon/react';
+import { RiLightbulbFlashLine, RiArrowLeftLine } from '@remixicon/react';
 import { useShallow } from 'zustand/react/shallow';
 import type { Message, Part } from '@opencode-ai/sdk/v2';
 
@@ -570,7 +570,7 @@ export const ChatContainer: React.FC = () => {
                                     className="rounded-full h-8 w-8 p-0 shadow-none bg-background/95 hover:bg-interactive-hover transition-opacity duration-200"
                                     aria-label="Scroll to top of answer"
                                 >
-                                    <RiArrowUpLine className="h-4 w-4" />
+                                    <RiLightbulbFlashLine className="h-4 w-4" />
                                 </Button>
                             </div>
                         )}
