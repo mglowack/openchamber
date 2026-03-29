@@ -76,7 +76,8 @@ const DIRECT_SCROLL_INTENT_WINDOW_MS = 250;
 // Threshold for re-pinning: 10% of container height (matches bottom spacer)
 const PIN_THRESHOLD_RATIO = 0.10;
 const VIEWPORT_ANCHOR_MIN_UPDATE_MS = 150;
-
+// How long the scroll-up button stays visible after the user stops scrolling
+const SCROLL_UP_HIDE_DELAY_MS = 2000;
 
 export const useChatScrollManager = ({
     currentSessionId,
@@ -119,6 +120,7 @@ export const useChatScrollManager = ({
     const pendingViewportAnchorRef = React.useRef<{ sessionId: string; anchor: number } | null>(null);
     const lastViewportAnchorRef = React.useRef<{ sessionId: string; anchor: number } | null>(null);
     const lastViewportAnchorWriteAtRef = React.useRef<number>(0);
+    const scrollUpHideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const isNavigatingRef = React.useRef(false);
 
     const markProgrammaticScroll = React.useCallback(() => {
@@ -397,11 +399,27 @@ export const useChatScrollManager = ({
         setShowScrollUpButton(false);
     }, [findNearestAnswerTurn, getStickyHeaderOffset, prepareForNavigation, scrollEngine]);
 
-    /** Show the scroll-up button whenever the currently visible turn has an answer. */
-    const updateScrollUpButton = React.useCallback(() => {
+    /** Flash the scroll-up button when the currently visible turn has an answer, then auto-hide. */
+    const flashScrollUpButton = React.useCallback(() => {
         const hasAnswer = findNearestAnswerTurn() !== null;
-        setShowScrollUpButton(hasAnswer);
+        if (!hasAnswer) {
+            setShowScrollUpButton(false);
+            return;
+        }
+        setShowScrollUpButton(true);
+
+        if (scrollUpHideTimerRef.current) clearTimeout(scrollUpHideTimerRef.current);
+        scrollUpHideTimerRef.current = setTimeout(() => {
+            setShowScrollUpButton(false);
+        }, SCROLL_UP_HIDE_DELAY_MS);
     }, [findNearestAnswerTurn]);
+
+    // Cleanup timer on unmount
+    React.useEffect(() => {
+        return () => {
+            if (scrollUpHideTimerRef.current) clearTimeout(scrollUpHideTimerRef.current);
+        };
+    }, []);
 
     const handleScrollEvent = React.useCallback((event?: Event) => {
         const container = scrollRef.current;
@@ -438,8 +456,10 @@ export const useChatScrollManager = ({
 
         lastScrollTopRef.current = currentScrollTop;
 
-        // Update scroll-up button visibility based on current visible turn
-        updateScrollUpButton();
+        // Show ephemeral scroll-up button on user-initiated scroll
+        if (event?.isTrusted && hasDirectIntent) {
+            flashScrollUpButton();
+        }
 
         const { scrollTop, scrollHeight, clientHeight } = container;
         const position = (scrollTop + clientHeight / 2) / Math.max(scrollHeight, 1);
@@ -447,7 +467,7 @@ export const useChatScrollManager = ({
         queueViewportAnchor(currentSessionId, estimatedIndex);
     }, [
         currentSessionId,
-        updateScrollUpButton,
+        flashScrollUpButton,
         getDistanceFromBottom,
         getPinThreshold,
         queueViewportAnchor,
