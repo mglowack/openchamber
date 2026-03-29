@@ -126,9 +126,7 @@ interface ChatMessageProps {
     animateUserOnMount?: boolean;
     onUserAnimationConsumed?: (messageId: string) => void;
     onJumpToAnswer?: () => void;
-    turnIndex?: number;
-    totalTurns?: number;
-    onNavigateTurn?: (offset: number) => void;
+    turnNavigation?: boolean;
 }
 
 const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -141,9 +139,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     animateUserOnMount = false,
     onUserAnimationConsumed,
     onJumpToAnswer,
-    turnIndex,
-    totalTurns,
-    onNavigateTurn,
+    turnNavigation,
 }) => {
     const { isMobile, hasTouchInput } = useDeviceInfo();
     const { currentTheme } = useThemeSystem();
@@ -1010,7 +1006,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                                 borderRadius: userMessageRadius,
                                                 borderBottomRightRadius: 'var(--radius-sm)',
                                             }}
-                                            className="px-5 py-3 shadow-none border border-primary/5"
+                                            className={cn("px-5 py-3 shadow-none border border-primary/5", turnNavigation && "min-h-[4.75rem] flex items-center")}
                                         >
                                             <MessageBody
                                                 messageId={message.info.id}
@@ -1042,9 +1038,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                                 errorMessage={assistantErrorText}
                                                 userActionsMode={useExternalUserActionsRow ? 'external-content' : 'inline'}
                                                 stickyUserHeaderEnabled={stickyUserHeader}
-                                                turnIndex={isUser ? turnIndex : undefined}
-                                                totalTurns={isUser ? totalTurns : undefined}
-                                                onNavigateTurn={isUser ? onNavigateTurn : undefined}
                                             />
                                         </div>
                                         {useExternalUserActionsRow ? (
@@ -1078,9 +1071,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                                 errorMessage={assistantErrorText}
                                                 userActionsMode="external-actions"
                                                 stickyUserHeaderEnabled={stickyUserHeader}
-                                                turnIndex={isUser ? turnIndex : undefined}
-                                                totalTurns={isUser ? totalTurns : undefined}
-                                                onNavigateTurn={isUser ? onNavigateTurn : undefined}
                                             />
                                         ) : null}
                                     </div>

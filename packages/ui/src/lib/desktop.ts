@@ -126,6 +126,7 @@ export type DesktopSettings = {
   mermaidRenderingMode?: 'svg' | 'ascii';
   userMessageRenderingMode?: 'markdown' | 'plain';
   stickyUserHeader?: boolean;
+  turnNavigation?: boolean;
   fontSize?: number;
   terminalFontSize?: number;
   padding?: number;

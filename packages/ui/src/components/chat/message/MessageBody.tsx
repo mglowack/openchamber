@@ -14,7 +14,7 @@ import { isEmptyTextPart, extractTextContent } from './partUtils';
 import { FadeInOnReveal } from './FadeInOnReveal';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { RiCheckLine, RiFileCopyLine, RiChatNewLine, RiArrowGoBackLine, RiArrowUpLine, RiArrowDownLine, RiGitBranchLine, RiHourglassLine, RiTimeLine, RiVolumeUpLine, RiStopLine, RiImageDownloadLine, RiLoader4Line, RiLightbulbFlashLine } from '@remixicon/react';
+import { RiCheckLine, RiFileCopyLine, RiChatNewLine, RiArrowGoBackLine, RiGitBranchLine, RiHourglassLine, RiTimeLine, RiVolumeUpLine, RiStopLine, RiImageDownloadLine, RiLoader4Line, RiLightbulbFlashLine } from '@remixicon/react';
 import { ArrowsMerge } from '@/components/icons/ArrowsMerge';
 import type { ContentChangeReason } from '@/hooks/useChatScrollManager';
 
@@ -289,9 +289,6 @@ interface MessageBodyProps {
     errorMessage?: string;
     userActionsMode?: 'inline' | 'external-content' | 'external-actions';
     stickyUserHeaderEnabled?: boolean;
-    turnIndex?: number;
-    totalTurns?: number;
-    onNavigateTurn?: (offset: number) => void;
 }
 
 const TOOL_REVEAL_CACHE_MAX = 200;
@@ -327,10 +324,7 @@ const UserMessageBody: React.FC<{
     onJumpToAnswer?: () => void;
     userActionsMode?: 'inline' | 'external-content' | 'external-actions';
     stickyUserHeaderEnabled?: boolean;
-    turnIndex?: number;
-    totalTurns?: number;
-    onNavigateTurn?: (offset: number) => void;
-}> = ({ messageId, parts, isMobile, hasTouchInput, hasTextContent, onCopyMessage, copiedMessage, onShowPopup, agentMention, onRevert, onFork, onJumpToAnswer, userActionsMode = 'inline', stickyUserHeaderEnabled = true, turnIndex, totalTurns, onNavigateTurn }) => {
+}> = ({ messageId, parts, isMobile, hasTouchInput, hasTextContent, onCopyMessage, copiedMessage, onShowPopup, agentMention, onRevert, onFork, onJumpToAnswer, userActionsMode = 'inline', stickyUserHeaderEnabled = true }) => {
     const [copyHintVisible, setCopyHintVisible] = React.useState(false);
     const copyHintTimeoutRef = React.useRef<number | null>(null);
 
@@ -404,10 +398,7 @@ const UserMessageBody: React.FC<{
         [hasCopyableText, isTouchContext, onCopyMessage, revealCopyHint]
     );
 
-    const showTurnNav = onNavigateTurn && totalTurns != null && totalTurns > 1 && turnIndex != null;
-    const hasRightActions = (canCopyMessage && hasCopyableText) || onRevert || onFork || onJumpToAnswer;
-
-    const actionsBlock = (hasRightActions || showTurnNav) && showUserActions ? (
+    const actionsBlock = ((canCopyMessage && hasCopyableText) || onRevert || onFork || onJumpToAnswer) && showUserActions ? (
         <div className={cn(
             'group/user-actions',
             isMobile
@@ -526,53 +517,6 @@ const UserMessageBody: React.FC<{
                         </TooltipTrigger>
                         <TooltipContent sideOffset={6}>Jump to answer</TooltipContent>
                     </Tooltip>
-                )}
-                {/* Turn navigation: separator + ↑ counter ↓ — pinned to far right */}
-                {showTurnNav && (
-                    <>
-                        <div className="h-4 w-px bg-border/50 mx-0.5 shrink-0" aria-hidden="true" />
-                        <Tooltip delayDuration={1000}>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    disabled={turnIndex === 0}
-                                    className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-30 disabled:pointer-events-none"
-                                    aria-label="Previous turn"
-                                    onPointerDown={(event) => event.stopPropagation()}
-                                    onClick={(event) => {
-                                        event.stopPropagation();
-                                        onNavigateTurn(-1);
-                                    }}
-                                >
-                                    <RiArrowUpLine className="h-3 w-3" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={6}>Previous turn</TooltipContent>
-                        </Tooltip>
-                        <span className="min-w-[3.5rem] text-center text-xs text-muted-foreground tabular-nums select-none shrink-0">{turnIndex + 1}/{totalTurns}</span>
-                        <Tooltip delayDuration={1000}>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    disabled={turnIndex === totalTurns - 1}
-                                    className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-30 disabled:pointer-events-none"
-                                    aria-label="Next turn"
-                                    onPointerDown={(event) => event.stopPropagation()}
-                                    onClick={(event) => {
-                                        event.stopPropagation();
-                                        onNavigateTurn(1);
-                                    }}
-                                >
-                                    <RiArrowDownLine className="h-3 w-3" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={6}>Next turn</TooltipContent>
-                        </Tooltip>
-                    </>
                 )}
             </div>
         </div>
@@ -1599,9 +1543,6 @@ const MessageBody: React.FC<MessageBodyProps> = ({ isUser, ...props }) => {
                 onJumpToAnswer={props.onJumpToAnswer}
                 userActionsMode={props.userActionsMode}
                 stickyUserHeaderEnabled={props.stickyUserHeaderEnabled}
-                turnIndex={props.turnIndex}
-                totalTurns={props.totalTurns}
-                onNavigateTurn={props.onNavigateTurn}
             />
         );
     }

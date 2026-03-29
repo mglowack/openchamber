@@ -117,13 +117,17 @@ export const useKeyboardShortcuts = () => {
 
       if (eventMatchesShortcut(e, combo('navigate_prev_turn'))) {
         e.preventDefault();
-        window.dispatchEvent(new CustomEvent('openchamber:navigate-turn', { detail: -1 }));
+        if (useUIStore.getState().turnNavigation) {
+          window.dispatchEvent(new CustomEvent('openchamber:navigate-turn', { detail: -1 }));
+        }
         return;
       }
 
       if (eventMatchesShortcut(e, combo('navigate_next_turn'))) {
         e.preventDefault();
-        window.dispatchEvent(new CustomEvent('openchamber:navigate-turn', { detail: 1 }));
+        if (useUIStore.getState().turnNavigation) {
+          window.dispatchEvent(new CustomEvent('openchamber:navigate-turn', { detail: 1 }));
+        }
         return;
       }
 

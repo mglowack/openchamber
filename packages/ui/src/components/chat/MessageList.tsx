@@ -397,9 +397,7 @@ interface MessageRowProps {
     animationHandlers: AnimationHandlers;
     scrollToBottom?: (options?: { instant?: boolean; force?: boolean }) => void;
     onJumpToAnswer?: () => void;
-    turnIndex?: number;
-    totalTurns?: number;
-    onNavigateTurn?: (offset: number) => void;
+    turnNavigation?: boolean;
 }
 
 const MessageRow = React.memo<MessageRowProps>(({
@@ -413,9 +411,7 @@ const MessageRow = React.memo<MessageRowProps>(({
     animationHandlers,
     scrollToBottom,
     onJumpToAnswer,
-    turnIndex,
-    totalTurns,
-    onNavigateTurn,
+    turnNavigation,
 }) => {
     return (
         <ChatMessage
@@ -429,9 +425,7 @@ const MessageRow = React.memo<MessageRowProps>(({
             scrollToBottom={scrollToBottom}
             turnGroupingContext={turnGroupingContext}
             onJumpToAnswer={onJumpToAnswer}
-            turnIndex={turnIndex}
-            totalTurns={totalTurns}
-            onNavigateTurn={onNavigateTurn}
+            turnNavigation={turnNavigation}
         />
     );
 });
@@ -458,6 +452,8 @@ interface TurnBlockProps {
     turnIndex?: number;
     totalTurns?: number;
     onNavigateTurn?: (offset: number) => void;
+    turnNavigation?: boolean;
+    isMobile?: boolean;
 }
 
 const TurnBlock: React.FC<TurnBlockProps> = ({
@@ -480,6 +476,8 @@ const TurnBlock: React.FC<TurnBlockProps> = ({
     turnIndex,
     totalTurns,
     onNavigateTurn,
+    turnNavigation,
+    isMobile,
 }) => {
     const turnUiState = turnUiStates.get(turn.turnId) ?? { isExpanded: defaultActivityExpanded };
 
@@ -673,9 +671,7 @@ const TurnBlock: React.FC<TurnBlockProps> = ({
                     animationHandlers={getAnimationHandlers(message.info.id)}
                     scrollToBottom={scrollToBottom}
                     onJumpToAnswer={isUserMessage && hasCompleteResponse ? jumpToAnswer : undefined}
-                    turnIndex={isUserMessage ? turnIndex : undefined}
-                    totalTurns={isUserMessage ? totalTurns : undefined}
-                    onNavigateTurn={isUserMessage ? onNavigateTurn : undefined}
+                    turnNavigation={isUserMessage ? turnNavigation : undefined}
                 />
             );
         },
@@ -687,13 +683,11 @@ const TurnBlock: React.FC<TurnBlockProps> = ({
             messageOrder.lookup,
             messageOrder.ordered,
             onMessageContentChange,
-            onNavigateTurn,
             scrollToBottom,
             sessionIsWorking,
-            totalTurns,
             turn.turnId,
             turn.userMessage.info.id,
-            turnIndex,
+            turnNavigation,
             turnUiState.isExpanded,
             turnGroupingContextBase,
             visibleAssistantMessages,
@@ -715,7 +709,7 @@ const TurnBlock: React.FC<TurnBlockProps> = ({
     }, [turn, visibleAssistantMessages]);
 
     return (
-        <TurnItem turn={renderableTurn} stickyUserHeader={stickyUserHeader} renderMessage={renderMessage} />
+        <TurnItem turn={renderableTurn} stickyUserHeader={stickyUserHeader} renderMessage={renderMessage} turnIndex={turnIndex} totalTurns={totalTurns} onNavigateTurn={onNavigateTurn} turnNavigation={turnNavigation} isMobile={isMobile} />
     );
 };
 
@@ -777,6 +771,8 @@ interface MessageListEntryProps {
     turnIndex?: number;
     totalTurns?: number;
     onNavigateTurn?: (offset: number) => void;
+    turnNavigation?: boolean;
+    isMobile?: boolean;
 }
 
 const MessageListEntry: React.FC<MessageListEntryProps> = React.memo(({
@@ -798,6 +794,8 @@ const MessageListEntry: React.FC<MessageListEntryProps> = React.memo(({
     turnIndex,
     totalTurns,
     onNavigateTurn,
+    turnNavigation,
+    isMobile,
 }) => {
     if (entry.kind === 'ungrouped') {
         return (
@@ -835,6 +833,8 @@ const MessageListEntry: React.FC<MessageListEntryProps> = React.memo(({
             turnIndex={turnIndex}
             totalTurns={totalTurns}
             onNavigateTurn={onNavigateTurn}
+            turnNavigation={turnNavigation}
+            isMobile={isMobile}
         />
     );
 }, areMessageListEntryPropsEqual);
@@ -867,6 +867,10 @@ function areMessageListEntryPropsEqual(prevProps: MessageListEntryProps, nextPro
         }
 
         if (prevProps.turnIndex !== nextProps.turnIndex || prevProps.totalTurns !== nextProps.totalTurns) {
+            return false;
+        }
+
+        if (prevProps.turnNavigation !== nextProps.turnNavigation) {
             return false;
         }
 
@@ -903,7 +907,9 @@ const MessageListContent: React.FC<{
     hasActiveQuestion?: boolean;
     turnIds?: string[];
     onNavigateTurn?: (offset: number) => void;
-}> = ({ entries, onMessageContentChange, getAnimationHandlers, scrollToBottom, stickyUserHeader, sessionIsWorking, defaultActivityExpanded, turnUiStates, onToggleTurnGroup, chatRenderMode, shouldAnimateUserMessage, onUserAnimationConsumed, scrollRef, prepareForNavigation, hasActiveQuestion, turnIds, onNavigateTurn }) => {
+    turnNavigation?: boolean;
+    isMobile?: boolean;
+}> = ({ entries, onMessageContentChange, getAnimationHandlers, scrollToBottom, stickyUserHeader, sessionIsWorking, defaultActivityExpanded, turnUiStates, onToggleTurnGroup, chatRenderMode, shouldAnimateUserMessage, onUserAnimationConsumed, scrollRef, prepareForNavigation, hasActiveQuestion, turnIds, onNavigateTurn, turnNavigation, isMobile }) => {
     const totalTurns = turnIds?.length ?? 0;
 
     const turnIndexLookup = React.useMemo(() => {
@@ -941,9 +947,11 @@ const MessageListContent: React.FC<{
                 turnIndex={entryTurnIndex}
                 totalTurns={totalTurns}
                 onNavigateTurn={onNavigateTurn}
+                turnNavigation={turnNavigation}
+                isMobile={isMobile}
             />
         );
-    }, [chatRenderMode, defaultActivityExpanded, getAnimationHandlers, hasActiveQuestion, onMessageContentChange, onNavigateTurn, onToggleTurnGroup, onUserAnimationConsumed, prepareForNavigation, scrollRef, scrollToBottom, sessionIsWorking, shouldAnimateUserMessage, stickyUserHeader, totalTurns, turnIndexLookup, turnUiStates]);
+    }, [chatRenderMode, defaultActivityExpanded, getAnimationHandlers, hasActiveQuestion, isMobile, onMessageContentChange, onNavigateTurn, onToggleTurnGroup, onUserAnimationConsumed, prepareForNavigation, scrollRef, scrollToBottom, sessionIsWorking, shouldAnimateUserMessage, stickyUserHeader, totalTurns, turnIndexLookup, turnNavigation, turnUiStates]);
 
     return (
         <TurnList entries={entries} renderEntry={renderEntry} />
@@ -974,6 +982,7 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
     const { working } = useAssistantStatus();
     const currentAgentName = useConfigStore((state) => state.currentAgentName);
     const stickyUserHeader = useUIStore(state => state.stickyUserHeader);
+    const turnNavigation = useUIStore(state => state.turnNavigation);
     const chatRenderMode = useUIStore((state) => state.chatRenderMode);
     const activityRenderMode = useUIStore((state) => state.activityRenderMode);
     const defaultActivityExpanded = activityRenderMode === 'summary';
@@ -1639,6 +1648,8 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
                                             turnIndex={entry.kind === 'turn' && turnIndexLookup ? turnIndexLookup.get(entry.turn.turnId) : undefined}
                                             totalTurns={totalTurns}
                                             onNavigateTurn={onNavigateTurn}
+                                            turnNavigation={turnNavigation}
+                                            isMobile={isMobile}
                                         />
                                     </div>
                                 );
@@ -1665,6 +1676,8 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
                             hasActiveQuestion={hasActiveQuestion}
                             turnIds={turnIds}
                             onNavigateTurn={onNavigateTurn}
+                            turnNavigation={turnNavigation}
+                            isMobile={isMobile}
                         />
                         </div>
                     )}
