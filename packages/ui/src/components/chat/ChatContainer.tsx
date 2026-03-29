@@ -562,7 +562,7 @@ export const ChatContainer: React.FC = () => {
                 {!isDesktopExpandedInput && sessionMessages.length > 0 && (
                     <>
                         {showScrollUpButton && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-12 z-10">
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-14 z-10">
                                 <Button
                                     variant="outline"
                                     size="sm"

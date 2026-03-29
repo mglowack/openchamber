@@ -76,8 +76,7 @@ const DIRECT_SCROLL_INTENT_WINDOW_MS = 250;
 // Threshold for re-pinning: 10% of container height (matches bottom spacer)
 const PIN_THRESHOLD_RATIO = 0.10;
 const VIEWPORT_ANCHOR_MIN_UPDATE_MS = 150;
-// How long the scroll-up button stays visible after the user stops scrolling
-const SCROLL_UP_HIDE_DELAY_MS = 3000;
+
 
 export const useChatScrollManager = ({
     currentSessionId,
@@ -120,7 +119,6 @@ export const useChatScrollManager = ({
     const pendingViewportAnchorRef = React.useRef<{ sessionId: string; anchor: number } | null>(null);
     const lastViewportAnchorRef = React.useRef<{ sessionId: string; anchor: number } | null>(null);
     const lastViewportAnchorWriteAtRef = React.useRef<number>(0);
-    const scrollUpHideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const isNavigatingRef = React.useRef(false);
 
     const markProgrammaticScroll = React.useCallback(() => {
@@ -399,44 +397,11 @@ export const useChatScrollManager = ({
         setShowScrollUpButton(false);
     }, [findNearestAnswerTurn, getStickyHeaderOffset, prepareForNavigation, scrollEngine]);
 
-    /**
-     * Check whether the arrow-up button should be visible.
-     * True when there is a nearest answer turn whose text target is above
-     * the visible area (hidden behind or above the sticky header + shadow).
-     */
-    const isAboveCurrentTurnTop = React.useCallback((): boolean => {
-        const container = scrollRef.current;
-        const target = findNearestAnswerTurn();
-        if (!container || !target) return false;
-
-        const containerRect = container.getBoundingClientRect();
-        const headerOffset = getStickyHeaderOffset(target.turn);
-        const answerRect = target.answerEl.getBoundingClientRect();
-
-        // Arrow shows when the answer's top is above the header bottom edge
-        return answerRect.top < containerRect.top + headerOffset;
-    }, [findNearestAnswerTurn, getStickyHeaderOffset]);
-
-    /** Show the scroll-up button temporarily, then hide after idle delay. */
-    const flashScrollUpButton = React.useCallback(() => {
-        if (!isAboveCurrentTurnTop()) {
-            setShowScrollUpButton(false);
-            return;
-        }
-        setShowScrollUpButton(true);
-
-        if (scrollUpHideTimerRef.current) clearTimeout(scrollUpHideTimerRef.current);
-        scrollUpHideTimerRef.current = setTimeout(() => {
-            setShowScrollUpButton(false);
-        }, SCROLL_UP_HIDE_DELAY_MS);
-    }, [isAboveCurrentTurnTop]);
-
-    // Cleanup timer on unmount
-    React.useEffect(() => {
-        return () => {
-            if (scrollUpHideTimerRef.current) clearTimeout(scrollUpHideTimerRef.current);
-        };
-    }, []);
+    /** Show the scroll-up button whenever the currently visible turn has an answer. */
+    const updateScrollUpButton = React.useCallback(() => {
+        const hasAnswer = findNearestAnswerTurn() !== null;
+        setShowScrollUpButton(hasAnswer);
+    }, [findNearestAnswerTurn]);
 
     const handleScrollEvent = React.useCallback((event?: Event) => {
         const container = scrollRef.current;
@@ -473,10 +438,8 @@ export const useChatScrollManager = ({
 
         lastScrollTopRef.current = currentScrollTop;
 
-        // Show ephemeral scroll-up button on user-initiated scroll
-        if (event?.isTrusted && hasDirectIntent) {
-            flashScrollUpButton();
-        }
+        // Update scroll-up button visibility based on current visible turn
+        updateScrollUpButton();
 
         const { scrollTop, scrollHeight, clientHeight } = container;
         const position = (scrollTop + clientHeight / 2) / Math.max(scrollHeight, 1);
@@ -484,7 +447,7 @@ export const useChatScrollManager = ({
         queueViewportAnchor(currentSessionId, estimatedIndex);
     }, [
         currentSessionId,
-        flashScrollUpButton,
+        updateScrollUpButton,
         getDistanceFromBottom,
         getPinThreshold,
         queueViewportAnchor,
