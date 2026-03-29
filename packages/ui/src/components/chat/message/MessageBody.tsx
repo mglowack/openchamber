@@ -14,7 +14,7 @@ import { isEmptyTextPart, extractTextContent } from './partUtils';
 import { FadeInOnReveal } from './FadeInOnReveal';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { RiCheckLine, RiFileCopyLine, RiChatNewLine, RiArrowGoBackLine, RiGitBranchLine, RiHourglassLine, RiTimeLine, RiVolumeUpLine, RiStopLine, RiImageDownloadLine, RiLoader4Line, RiLightbulbFlashLine } from '@remixicon/react';
+import { RiCheckLine, RiFileCopyLine, RiChatNewLine, RiArrowGoBackLine, RiArrowUpLine, RiArrowDownLine, RiGitBranchLine, RiHourglassLine, RiTimeLine, RiVolumeUpLine, RiStopLine, RiImageDownloadLine, RiLoader4Line, RiLightbulbFlashLine } from '@remixicon/react';
 import { ArrowsMerge } from '@/components/icons/ArrowsMerge';
 import type { ContentChangeReason } from '@/hooks/useChatScrollManager';
 
@@ -289,6 +289,10 @@ interface MessageBodyProps {
     errorMessage?: string;
     userActionsMode?: 'inline' | 'external-content' | 'external-actions';
     stickyUserHeaderEnabled?: boolean;
+    turnIndex?: number;
+    totalTurns?: number;
+    onNavigateTurn?: (offset: number) => void;
+    turnNavigation?: boolean;
 }
 
 const TOOL_REVEAL_CACHE_MAX = 200;
@@ -324,7 +328,11 @@ const UserMessageBody: React.FC<{
     onJumpToAnswer?: () => void;
     userActionsMode?: 'inline' | 'external-content' | 'external-actions';
     stickyUserHeaderEnabled?: boolean;
-}> = ({ messageId, parts, isMobile, hasTouchInput, hasTextContent, onCopyMessage, copiedMessage, onShowPopup, agentMention, onRevert, onFork, onJumpToAnswer, userActionsMode = 'inline', stickyUserHeaderEnabled = true }) => {
+    turnIndex?: number;
+    totalTurns?: number;
+    onNavigateTurn?: (offset: number) => void;
+    turnNavigation?: boolean;
+}> = ({ messageId, parts, isMobile, hasTouchInput, hasTextContent, onCopyMessage, copiedMessage, onShowPopup, agentMention, onRevert, onFork, onJumpToAnswer, userActionsMode = 'inline', stickyUserHeaderEnabled = true, turnIndex, totalTurns, onNavigateTurn, turnNavigation }) => {
     const [copyHintVisible, setCopyHintVisible] = React.useState(false);
     const copyHintTimeoutRef = React.useRef<number | null>(null);
 
@@ -398,7 +406,10 @@ const UserMessageBody: React.FC<{
         [hasCopyableText, isTouchContext, onCopyMessage, revealCopyHint]
     );
 
-    const actionsBlock = ((canCopyMessage && hasCopyableText) || onRevert || onFork || onJumpToAnswer) && showUserActions ? (
+    const hasActionButtons = (canCopyMessage && hasCopyableText) || onRevert || onFork;
+    const showTurnNav = turnNavigation && onNavigateTurn && turnIndex != null && totalTurns != null;
+
+    const actionsBlock = (hasActionButtons || onJumpToAnswer || showTurnNav) && showUserActions ? (
         <div className={cn(
             'group/user-actions',
             isMobile
@@ -426,6 +437,98 @@ const UserMessageBody: React.FC<{
                         : 'pointer-events-none opacity-0 transition-opacity duration-150 group-hover/message:pointer-events-auto group-hover/message:opacity-100 group-hover/user-actions:pointer-events-auto group-hover/user-actions:opacity-100 group-hover/user-shell:pointer-events-auto group-hover/user-shell:opacity-100'
                 )}
             >
+                {/* Navigation group: answer, ↑, ↓ */}
+                {showTurnNav && (
+                    <>
+                        {onJumpToAnswer && (
+                            <Tooltip delayDuration={1000}>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50"
+                                        aria-label="Jump to answer"
+                                        onPointerDown={(event) => event.stopPropagation()}
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            onJumpToAnswer();
+                                        }}
+                                    >
+                                        <RiLightbulbFlashLine className="h-3 w-3" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent sideOffset={6}>Jump to answer</TooltipContent>
+                            </Tooltip>
+                        )}
+                        <Tooltip delayDuration={1000}>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={turnIndex === 0}
+                                    className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-30 disabled:pointer-events-none"
+                                    aria-label="Previous turn"
+                                    onPointerDown={(event) => event.stopPropagation()}
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        onNavigateTurn(-1);
+                                    }}
+                                >
+                                    <RiArrowUpLine className="h-3 w-3" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={6}>Previous turn</TooltipContent>
+                        </Tooltip>
+                        <Tooltip delayDuration={1000}>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={turnIndex === totalTurns - 1}
+                                    className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-30 disabled:pointer-events-none"
+                                    aria-label="Next turn"
+                                    onPointerDown={(event) => event.stopPropagation()}
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        onNavigateTurn(1);
+                                    }}
+                                >
+                                    <RiArrowDownLine className="h-3 w-3" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={6}>Next turn</TooltipContent>
+                        </Tooltip>
+                        {hasActionButtons && (
+                            <div className="h-4 w-px bg-border/50 mx-0.5 shrink-0" aria-hidden="true" />
+                        )}
+                    </>
+                )}
+                {/* Jump to answer when turn nav is off */}
+                {!showTurnNav && onJumpToAnswer && (
+                    <Tooltip delayDuration={1000}>
+                        <TooltipTrigger asChild>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50"
+                                aria-label="Jump to answer"
+                                onPointerDown={(event) => event.stopPropagation()}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    onJumpToAnswer();
+                                }}
+                            >
+                                <RiLightbulbFlashLine className="h-3 w-3" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent sideOffset={6}>Jump to answer</TooltipContent>
+                    </Tooltip>
+                )}
+                {/* Action group: revert, fork, copy */}
                 {onRevert && (
                     <Tooltip delayDuration={1000}>
                         <TooltipTrigger asChild>
@@ -495,27 +598,6 @@ const UserMessageBody: React.FC<{
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent sideOffset={6}>Copy message</TooltipContent>
-                    </Tooltip>
-                )}
-                {onJumpToAnswer && (
-                    <Tooltip delayDuration={1000}>
-                        <TooltipTrigger asChild>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50"
-                                aria-label="Jump to answer"
-                                onPointerDown={(event) => event.stopPropagation()}
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    onJumpToAnswer();
-                                }}
-                            >
-                                <RiLightbulbFlashLine className="h-3 w-3" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent sideOffset={6}>Jump to answer</TooltipContent>
                     </Tooltip>
                 )}
             </div>
@@ -1543,6 +1625,10 @@ const MessageBody: React.FC<MessageBodyProps> = ({ isUser, ...props }) => {
                 onJumpToAnswer={props.onJumpToAnswer}
                 userActionsMode={props.userActionsMode}
                 stickyUserHeaderEnabled={props.stickyUserHeaderEnabled}
+                turnIndex={props.turnIndex}
+                totalTurns={props.totalTurns}
+                onNavigateTurn={props.onNavigateTurn}
+                turnNavigation={props.turnNavigation}
             />
         );
     }

@@ -126,6 +126,9 @@ interface ChatMessageProps {
     animateUserOnMount?: boolean;
     onUserAnimationConsumed?: (messageId: string) => void;
     onJumpToAnswer?: () => void;
+    turnIndex?: number;
+    totalTurns?: number;
+    onNavigateTurn?: (offset: number) => void;
     turnNavigation?: boolean;
 }
 
@@ -139,6 +142,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     animateUserOnMount = false,
     onUserAnimationConsumed,
     onJumpToAnswer,
+    turnIndex,
+    totalTurns,
+    onNavigateTurn,
     turnNavigation,
 }) => {
     const { isMobile, hasTouchInput } = useDeviceInfo();
@@ -998,83 +1004,89 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                 ignoreContextDisabled
                                 respectReducedMotion
                             >
-                                <div className={cn('relative flex justify-end', !isMobile ? 'group/user-shell' : undefined)}>
-                                    <div className="max-w-[85%]">
-                                        <div
-                                            style={{
-                                                backgroundColor: 'var(--chat-user-message-bg)',
-                                                borderRadius: userMessageRadius,
-                                                borderBottomRightRadius: 'var(--radius-sm)',
-                                            }}
-                                            className={cn("px-5 py-3 shadow-none border border-primary/5", turnNavigation && "min-h-[4.75rem] flex items-center")}
-                                        >
-                                            <MessageBody
-                                                messageId={message.info.id}
-                                                parts={displayParts}
-                                                isUser={isUser}
-                                                isMessageCompleted={isMessageCompleted}
-                                                messageFinish={messageFinish}
-                                                syntaxTheme={syntaxTheme}
-                                                isMobile={isMobile}
-                                                hasTouchInput={hasTouchInput}
-                                                copiedCode={copiedCode}
-                                                onCopyCode={handleCopyCode}
-                                                expandedTools={expandedTools}
-                                                onToggleTool={handleToggleTool}
-                                                onShowPopup={handleShowPopup}
-                                                streamPhase={streamPhase}
-                                                allowAnimation={allowAnimation}
-                                                onContentChange={onContentChange}
-                                                shouldShowHeader={false}
-                                                hasTextContent={hasTextContent}
-                                                onCopyMessage={handleCopyMessage}
-                                                copiedMessage={copiedMessage}
-                                                showReasoningTraces={showReasoningTraces}
-                                                onAuxiliaryContentComplete={handleAuxiliaryContentComplete}
-                                                agentMention={agentMention}
-                                                onRevert={handleRevert}
-                                                onFork={isUser ? handleFork : undefined}
-                                                onJumpToAnswer={isUser ? onJumpToAnswer : undefined}
-                                                errorMessage={assistantErrorText}
-                                                userActionsMode={useExternalUserActionsRow ? 'external-content' : 'inline'}
-                                                stickyUserHeaderEnabled={stickyUserHeader}
-                                            />
+                                <div className={!isMobile ? 'group/user-shell' : undefined}>
+                                    <div className="relative flex justify-end">
+                                        <div className="max-w-[85%]">
+                                            <div
+                                                style={{
+                                                    backgroundColor: 'var(--chat-user-message-bg)',
+                                                    borderRadius: userMessageRadius,
+                                                    borderBottomRightRadius: 'var(--radius-sm)',
+                                                }}
+                                                className="px-5 py-3 shadow-none border border-primary/5"
+                                            >
+                                                <MessageBody
+                                                    messageId={message.info.id}
+                                                    parts={displayParts}
+                                                    isUser={isUser}
+                                                    isMessageCompleted={isMessageCompleted}
+                                                    messageFinish={messageFinish}
+                                                    syntaxTheme={syntaxTheme}
+                                                    isMobile={isMobile}
+                                                    hasTouchInput={hasTouchInput}
+                                                    copiedCode={copiedCode}
+                                                    onCopyCode={handleCopyCode}
+                                                    expandedTools={expandedTools}
+                                                    onToggleTool={handleToggleTool}
+                                                    onShowPopup={handleShowPopup}
+                                                    streamPhase={streamPhase}
+                                                    allowAnimation={allowAnimation}
+                                                    onContentChange={onContentChange}
+                                                    shouldShowHeader={false}
+                                                    hasTextContent={hasTextContent}
+                                                    onCopyMessage={handleCopyMessage}
+                                                    copiedMessage={copiedMessage}
+                                                    showReasoningTraces={showReasoningTraces}
+                                                    onAuxiliaryContentComplete={handleAuxiliaryContentComplete}
+                                                    agentMention={agentMention}
+                                                    onRevert={handleRevert}
+                                                    onFork={isUser ? handleFork : undefined}
+                                                    onJumpToAnswer={isUser ? onJumpToAnswer : undefined}
+                                                    errorMessage={assistantErrorText}
+                                                    userActionsMode={useExternalUserActionsRow ? 'external-content' : 'inline'}
+                                                    stickyUserHeaderEnabled={stickyUserHeader}
+                                                />
+                                            </div>
                                         </div>
-                                        {useExternalUserActionsRow ? (
-                                            <MessageBody
-                                                messageId={message.info.id}
-                                                parts={displayParts}
-                                                isUser={isUser}
-                                                isMessageCompleted={isMessageCompleted}
-                                                messageFinish={messageFinish}
-                                                syntaxTheme={syntaxTheme}
-                                                isMobile={isMobile}
-                                                hasTouchInput={hasTouchInput}
-                                                copiedCode={copiedCode}
-                                                onCopyCode={handleCopyCode}
-                                                expandedTools={expandedTools}
-                                                onToggleTool={handleToggleTool}
-                                                onShowPopup={handleShowPopup}
-                                                streamPhase={streamPhase}
-                                                allowAnimation={allowAnimation}
-                                                onContentChange={onContentChange}
-                                                shouldShowHeader={false}
-                                                hasTextContent={hasTextContent}
-                                                onCopyMessage={handleCopyMessage}
-                                                copiedMessage={copiedMessage}
-                                                showReasoningTraces={showReasoningTraces}
-                                                onAuxiliaryContentComplete={handleAuxiliaryContentComplete}
-                                                agentMention={agentMention}
-                                                onRevert={handleRevert}
-                                                onFork={isUser ? handleFork : undefined}
-                                                onJumpToAnswer={isUser ? onJumpToAnswer : undefined}
-                                                errorMessage={assistantErrorText}
-                                                userActionsMode="external-actions"
-                                                stickyUserHeaderEnabled={stickyUserHeader}
-                                            />
-                                        ) : null}
+                                        {showStickyInlineHoverRow ? <div aria-hidden="true" className="pointer-events-none absolute left-0 right-0 top-full h-11" /> : null}
                                     </div>
-                                    {showStickyInlineHoverRow ? <div aria-hidden="true" className="pointer-events-none absolute left-0 right-0 top-full h-11" /> : null}
+                                    {useExternalUserActionsRow ? (
+                                        <MessageBody
+                                            messageId={message.info.id}
+                                            parts={displayParts}
+                                            isUser={isUser}
+                                            isMessageCompleted={isMessageCompleted}
+                                            messageFinish={messageFinish}
+                                            syntaxTheme={syntaxTheme}
+                                            isMobile={isMobile}
+                                            hasTouchInput={hasTouchInput}
+                                            copiedCode={copiedCode}
+                                            onCopyCode={handleCopyCode}
+                                            expandedTools={expandedTools}
+                                            onToggleTool={handleToggleTool}
+                                            onShowPopup={handleShowPopup}
+                                            streamPhase={streamPhase}
+                                            allowAnimation={allowAnimation}
+                                            onContentChange={onContentChange}
+                                            shouldShowHeader={false}
+                                            hasTextContent={hasTextContent}
+                                            onCopyMessage={handleCopyMessage}
+                                            copiedMessage={copiedMessage}
+                                            showReasoningTraces={showReasoningTraces}
+                                            onAuxiliaryContentComplete={handleAuxiliaryContentComplete}
+                                            agentMention={agentMention}
+                                            onRevert={handleRevert}
+                                            onFork={isUser ? handleFork : undefined}
+                                            onJumpToAnswer={isUser ? onJumpToAnswer : undefined}
+                                            errorMessage={assistantErrorText}
+                                            userActionsMode="external-actions"
+                                            stickyUserHeaderEnabled={stickyUserHeader}
+                                            turnIndex={isUser ? turnIndex : undefined}
+                                            totalTurns={isUser ? totalTurns : undefined}
+                                            onNavigateTurn={isUser ? onNavigateTurn : undefined}
+                                            turnNavigation={isUser ? turnNavigation : undefined}
+                                        />
+                                    ) : null}
                                 </div>
                             </FadeInOnReveal>
                         )
