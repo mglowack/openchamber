@@ -1131,6 +1131,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                 agentMention={agentMention}
                                 turnGroupingContext={turnGroupingContext}
                                 errorMessage={assistantErrorText}
+                                onJumpToAnswer={onJumpToAnswer}
                             />
 
                         </div>

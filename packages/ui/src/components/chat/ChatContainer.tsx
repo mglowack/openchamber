@@ -308,6 +308,18 @@ export const ChatContainer: React.FC = () => {
         };
     }, [navigation, releasePinnedScroll]);
 
+    // Keyboard shortcut: Cmd+E → jump to answer of current turn
+    React.useEffect(() => {
+        const handleJumpToAnswer = () => {
+            scrollToCurrentTurnTop();
+        };
+
+        window.addEventListener('openchamber:jump-to-answer', handleJumpToAnswer);
+        return () => {
+            window.removeEventListener('openchamber:jump-to-answer', handleJumpToAnswer);
+        };
+    }, [scrollToCurrentTurnTop]);
+
     // Callback for turn navigation from the user actions toolbar
     const handleNavigateTurn = React.useCallback((offset: number) => {
         releasePinnedScroll();

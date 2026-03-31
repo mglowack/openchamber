@@ -131,6 +131,12 @@ export const useKeyboardShortcuts = () => {
         return;
       }
 
+      if (eventMatchesShortcut(e, combo('jump_to_answer'))) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('openchamber:jump-to-answer'));
+        return;
+      }
+
       if (eventMatchesShortcut(e, combo('open_settings'))) {
         e.preventDefault();
         const { isSettingsDialogOpen } = useUIStore.getState();

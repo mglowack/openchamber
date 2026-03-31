@@ -326,6 +326,13 @@ const SHORTCUT_ACTIONS: ReadonlyArray<ShortcutAction> = [
     customizable: true,
   },
   {
+    id: 'jump_to_answer',
+    defaultCombo: 'mod+e',
+    label: 'Jump to answer',
+    description: 'Scroll to the answer of the current turn',
+    customizable: true,
+  },
+  {
     id: 'abort_run',
     defaultCombo: 'escape',
     label: 'Abort active run',
