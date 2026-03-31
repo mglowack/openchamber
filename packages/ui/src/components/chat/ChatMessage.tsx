@@ -1013,7 +1013,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                                     borderRadius: userMessageRadius,
                                                     borderBottomRightRadius: 'var(--radius-sm)',
                                                 }}
-                                                className="px-5 py-3 shadow-none border border-primary/5"
+                                                className={cn("px-5 py-3 shadow-none border border-primary/5", turnNavigation && "min-h-[4.75rem] flex items-center")}
                                             >
                                                 <MessageBody
                                                     messageId={message.info.id}
@@ -1041,7 +1041,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                                     agentMention={agentMention}
                                                     onRevert={handleRevert}
                                                     onFork={isUser ? handleFork : undefined}
-                                                    onJumpToAnswer={isUser ? onJumpToAnswer : undefined}
+                                                    onJumpToAnswer={onJumpToAnswer}
                                                     errorMessage={assistantErrorText}
                                                     userActionsMode={useExternalUserActionsRow ? 'external-content' : 'inline'}
                                                     stickyUserHeaderEnabled={stickyUserHeader}
@@ -1077,7 +1077,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                             agentMention={agentMention}
                                             onRevert={handleRevert}
                                             onFork={isUser ? handleFork : undefined}
-                                            onJumpToAnswer={isUser ? onJumpToAnswer : undefined}
+                                            onJumpToAnswer={onJumpToAnswer}
                                             errorMessage={assistantErrorText}
                                             userActionsMode="external-actions"
                                             stickyUserHeaderEnabled={stickyUserHeader}

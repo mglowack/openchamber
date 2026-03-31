@@ -437,7 +437,7 @@ const UserMessageBody: React.FC<{
                         : 'pointer-events-none opacity-0 transition-opacity duration-150 group-hover/message:pointer-events-auto group-hover/message:opacity-100 group-hover/user-actions:pointer-events-auto group-hover/user-actions:opacity-100 group-hover/user-shell:pointer-events-auto group-hover/user-shell:opacity-100'
                 )}
             >
-                {/* Navigation group: answer, ↑, ↓ */}
+                {/* Navigation group: answer, counter, ↑, ↓ */}
                 {showTurnNav && (
                     <>
                         {onJumpToAnswer && (
@@ -461,6 +461,7 @@ const UserMessageBody: React.FC<{
                                 <TooltipContent sideOffset={6}>Jump to answer</TooltipContent>
                             </Tooltip>
                         )}
+                        <span className="min-w-[2.5rem] text-center text-xs text-muted-foreground tabular-nums select-none">{turnIndex + 1}/{totalTurns}</span>
                         <Tooltip delayDuration={1000}>
                             <TooltipTrigger asChild>
                                 <Button
@@ -690,6 +691,7 @@ const AssistantMessageBody: React.FC<Omit<MessageBodyProps, 'isUser'>> = ({
     showReasoningTraces = false,
     turnGroupingContext,
     errorMessage,
+    onJumpToAnswer,
 }) => {
     const streamPhase = _streamPhase;
     void _allowAnimation;
@@ -1516,10 +1518,29 @@ const AssistantMessageBody: React.FC<Omit<MessageBodyProps, 'isUser'>> = ({
                           <ArrowsMerge className="h-4 w-4" />
                       </Button>
                   </TooltipTrigger>
-                  <TooltipContent sideOffset={6}>Start new multi-run from this answer</TooltipContent>
-              </Tooltip>
+                   <TooltipContent sideOffset={6}>Start new multi-run from this answer</TooltipContent>
+               </Tooltip>
 
-              {showMessageTTSButtons && hasCopyableText && (
+               {onJumpToAnswer && (
+                   <Tooltip delayDuration={1000}>
+                       <TooltipTrigger asChild>
+                           <Button
+                               type="button"
+                               size="icon"
+                               variant="ghost"
+                               className="h-8 w-8 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50"
+                               aria-label="Jump to answer"
+                               onPointerDown={(event) => event.stopPropagation()}
+                               onClick={onJumpToAnswer}
+                           >
+                               <RiLightbulbFlashLine className="h-4 w-4" />
+                           </Button>
+                       </TooltipTrigger>
+                       <TooltipContent sideOffset={6}>Jump to answer</TooltipContent>
+                   </Tooltip>
+               )}
+
+               {showMessageTTSButtons && hasCopyableText && (
                   <Tooltip delayDuration={1000}>
                       <TooltipTrigger asChild>
                          <Button
