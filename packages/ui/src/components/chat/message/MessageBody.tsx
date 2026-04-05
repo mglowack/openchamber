@@ -1521,25 +1521,6 @@ const AssistantMessageBody: React.FC<Omit<MessageBodyProps, 'isUser'>> = ({
                    <TooltipContent sideOffset={6}>Start new multi-run from this answer</TooltipContent>
                </Tooltip>
 
-               {onJumpToAnswer && (
-                   <Tooltip delayDuration={1000}>
-                       <TooltipTrigger asChild>
-                           <Button
-                               type="button"
-                               size="icon"
-                               variant="ghost"
-                               className="h-8 w-8 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50"
-                               aria-label="Jump to answer"
-                               onPointerDown={(event) => event.stopPropagation()}
-                               onClick={onJumpToAnswer}
-                           >
-                               <RiLightbulbFlashLine className="h-4 w-4" />
-                           </Button>
-                       </TooltipTrigger>
-                       <TooltipContent sideOffset={6}>Jump to answer</TooltipContent>
-                   </Tooltip>
-               )}
-
                {showMessageTTSButtons && hasCopyableText && (
                   <Tooltip delayDuration={1000}>
                       <TooltipTrigger asChild>
@@ -1599,6 +1580,24 @@ const AssistantMessageBody: React.FC<Omit<MessageBodyProps, 'isUser'>> = ({
                 <MessageFilesDisplay files={parts} onShowPopup={onShowPopup} />
                 {shouldShowFooter && (
                     <div className="mt-2 mb-1 flex items-center justify-start gap-1.5">
+                        {onJumpToAnswer && (
+                            <Tooltip delayDuration={1000}>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-8 w-8 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50"
+                                        aria-label="Jump to answer"
+                                        onPointerDown={(event) => event.stopPropagation()}
+                                        onClick={onJumpToAnswer}
+                                    >
+                                        <RiLightbulbFlashLine className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent sideOffset={6}>Jump to answer</TooltipContent>
+                            </Tooltip>
+                        )}
                         <div className="flex items-center gap-1.5">
                             {footerButtons}
                         </div>
